@@ -1,12 +1,14 @@
 require("dotenv").config();
 const express = require("express");
-const resolveMain = require("node-dev/lib/resolve-main");
 const app = express();
 const sqlite3 = require("sqlite3");
 
 // Connect to database
 const dbFile = "database.sqlite3";
 const dbConnect = () => new sqlite3.Database(dbFile);
+
+// Middleware applied
+app.use(express.json());
 
 // Get all pets
 app.get("/pet", (req, res) => {
@@ -35,9 +37,8 @@ app.get("/pet", (req, res) => {
   const sqlPhots = `
     SELECT 
       pp.photo_url photoURL
-    FROM pets p
-    JOIN pet_photos pp ON pp.pet_id = p.id
-    WHERE p.id = ? `;
+    FROM pet_photos pp
+    WHERE pp.pet_id = ? `;
 
   // Create base information
   db.all(sql, (err, rows) => {
@@ -71,9 +72,35 @@ app.get("/pet", (req, res) => {
     // After all promises, respond and close DB.
     Promise.all([...promises_getTags, ...promises_getPhotUrl]).then(() => {
       res.json(formattedResponse);
+
+      //  Disconnect from database
       db.close();
     });
   });
+});
+
+// Post a pet
+app.post("/pet", (req, res) => {
+  const db = dbConnect();
+
+  //   Get request body
+  const id = req.body.id;
+  const category = req.body.category ? req.body.category : null;
+  const name = req.body.name ? req.body.name : "";
+  const photoUrls = req.body.photoUrls ? req.body.photoUrls : null;
+  const tags = req.body.tags ? req.body.tags : null;
+  const status = req.body.status ? req.body.status : "";
+
+  //   Add pets
+  const sql = `
+    INSERT INTO pets (category_id, name, status)
+    VALUES ("${category}", "${name}", "${status}");`;
+
+  // Run query
+  db.run(sql);
+
+  //  Disconnect from database
+  db.close();
 });
 
 // Start server
