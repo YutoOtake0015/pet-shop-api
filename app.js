@@ -73,7 +73,7 @@ app.get("/pet", (req, res) => {
     Promise.all([...promises_getTags, ...promises_getPhotUrl]).then(() => {
       res.json(formattedResponse);
 
-      //  Disconnect from database
+      // Disconnect from database
       db.close();
     });
   });
@@ -91,16 +91,85 @@ app.post("/pet", (req, res) => {
   const tags = req.body.tags ? req.body.tags : null;
   const status = req.body.status ? req.body.status : "";
 
-  //   Add pets
-  const sql = `
+  const promise_addPets = new Promise((resolve, reject) => {
+    // Add pets
+    const sql_addPets = `
     INSERT INTO pets (category_id, name, status)
-    VALUES ("${category}", "${name}", "${status}");`;
+    VALUES ("${category.id}", "${name}", "${status}");`;
 
-  // Run query
-  db.run(sql);
+    resolve(sql_addPets);
+  });
 
-  //  Disconnect from database
-  db.close();
+  const promise_addTags = new Promise((resolve, reject) => {
+    // Add tags
+    let sql_addTags = "INSERT INTO tags (id, name) VALUES";
+    tags.forEach((tag, index) => {
+      const tag_id = tag.id;
+      const tag_name = tag.name;
+      const sql_right_addTags = `("${tag_id}", "${tag_name}")`;
+
+      sql_addTags += index === 0 ? sql_right_addTags : "," + sql_right_addTags;
+    });
+
+    resolve(sql_addTags);
+  });
+
+  // Add pet_tags
+  const promise_addPetTags = new Promise((resolve, reject) => {
+    // Add tags
+    let sql_addPetTags = "INSERT INTO pet_tags (pet_id, tag_id) VALUES";
+    tags.forEach((tag, index) => {
+      const tag_id = tag.id;
+      const sql_right_addPetTags = `("${id}", "${tag_id}")`;
+
+      sql_addPetTags +=
+        index === 0 ? sql_right_addPetTags : "," + sql_right_addPetTags;
+    });
+
+    resolve(sql_addPetTags);
+  });
+
+  // Add categories
+  const promise_addCategories = new Promise((resolve, reject) => {
+    // Add tags
+    let sql_addCategories = "INSERT INTO categories (id, name) VALUES";
+    const category_id = category.id;
+    const category_name = category.name;
+    const sql_right_addCategories = `("${category_id}", "${category_name}")`;
+
+    sql_addCategories += sql_right_addCategories;
+
+    resolve(sql_addCategories);
+  });
+
+  // Add pet_photos
+  const promise_addPetPhotos = new Promise((resolve, reject) => {
+    // Add tags
+    let sql_addPetPhotos = "INSERT INTO pet_photos (pet_id, photo_url) VALUES";
+    photoUrls.forEach((photoUrl, index) => {
+      const sql_right_addPetPhotos = `("${id}", "${photoUrl}")`;
+
+      sql_addPetPhotos +=
+        index === 0 ? sql_right_addPetPhotos : "," + sql_right_addPetPhotos;
+    });
+    resolve(sql_addPetPhotos);
+  });
+
+  Promise.all([
+    promise_addPets,
+    promise_addTags,
+    promise_addPetTags,
+    promise_addCategories,
+    promise_addPetPhotos,
+  ]).then((queries) => {
+    queries.forEach((query) => {
+      db.run(query);
+    });
+
+    // Disconnect from database
+    res.json();
+    db.close();
+  });
 });
 
 // Start server
