@@ -83,7 +83,7 @@ app.get("/pet", (req, res) => {
 app.post("/pet", (req, res) => {
   const db = dbConnect();
 
-  //   Get request body
+  // Get request body
   const id = req.body.id;
   const category = req.body.category ? req.body.category : null;
   const name = req.body.name ? req.body.name : "";
@@ -167,7 +167,7 @@ app.post("/pet", (req, res) => {
     });
 
     // Disconnect from database
-    res.json();
+    res.redirect("/pet");
     db.close();
   });
 });
@@ -239,6 +239,26 @@ app.get("/pet/:id", (req, res) => {
       db.close();
     });
   });
+});
+
+// Change a pet by petId
+app.post("/pet/:id", (req, res) => {
+  const db = dbConnect();
+
+  // Get request
+  const id = req.params.id;
+  const name = req.body.name ? req.body.name : "";
+  const status = req.body.status ? req.body.status : "";
+
+  const sql_changePets = `
+    UPDATE pets SET name = ?, status = ?
+    WHERE id = ? ;`;
+
+  db.run(sql_changePets, [name, status, id]);
+
+  res.status(204).end();
+  // Disconnect from database
+  db.close();
 });
 
 // Start server
