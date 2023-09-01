@@ -172,6 +172,75 @@ app.post("/pet", (req, res) => {
   });
 });
 
+// Get a pet by petId
+app.get("/pet/:id", (req, res) => {
+  const db = dbConnect();
+  const id = req.params.id;
+
+  //   Base information
+  const sql = `
+    SELECT
+       p.id petID,
+       p.category_id categoryID,
+       c.name categoryName,
+       p.name petName,
+       p.status petStatus
+    FROM pets p 
+    JOIN categories c ON p.category_id = c.id
+    WHERE p.id = ?;`;
+
+  // Tags
+  const sqlTags = `
+    SELECT 
+       t.id tagID,
+       t.name tagName
+    FROM tags t
+    JOIN pet_tags pt ON pt.tag_id = t.id
+    WHERE pt.pet_id = ? `;
+
+  // Phot Urls
+  const sqlPhots = `
+    SELECT 
+      pp.photo_url photoURL
+    FROM pet_photos pp
+    WHERE pp.pet_id = ? `;
+
+  // Create base information
+  db.get(sql, [id], (err, row) => {
+    const formattedResponse = {
+      id: row.petID,
+      category: { id: row.categoryID, name: row.categoryName },
+      name: row.petName,
+      status: row.petStatus,
+    };
+
+    const promises_getTags = new Promise((resolve, reject) => {
+      db.all(sqlTags, [formattedResponse.id], (err, tags) => {
+        formattedResponse.tags = tags.map((tag) => ({
+          id: tag.tagID,
+          name: tag.tagName,
+        }));
+        resolve();
+      });
+    });
+
+    const promises_getPhotUrl = new Promise((resolve, reject) => {
+      db.all(sqlPhots, [formattedResponse.id], (err, photos) => {
+        formattedResponse.photoUrls = photos.map((photo) => photo.photoURL);
+        resolve();
+      });
+    });
+
+    // After all promises, respond and close DB.
+    Promise.all([promises_getTags, promises_getPhotUrl]).then(() => {
+      res.json(formattedResponse);
+
+      //  Disconnect from database
+      db.close();
+    });
+  });
+});
+
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT);
