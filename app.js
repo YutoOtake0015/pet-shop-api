@@ -250,11 +250,29 @@ app.post("/pet/:id", (req, res) => {
   const name = req.body.name ? req.body.name : "";
   const status = req.body.status ? req.body.status : "";
 
-  const sql_changePets = `
+  const sql_changePet = `
     UPDATE pets SET name = ?, status = ?
     WHERE id = ? ;`;
 
-  db.run(sql_changePets, [name, status, id]);
+  db.run(sql_changePet, [name, status, id]);
+
+  res.status(204).end();
+  // Disconnect from database
+  db.close();
+});
+
+// Delete a pet by petId
+app.delete("/pet/:id", (req, res) => {
+  const db = dbConnect();
+
+  // Get parameter
+  const id = req.params.id;
+
+  const sql_deletePet = `
+    DELETE FROM pets 
+    WHERE id = ? ;`;
+
+  db.run(sql_deletePet, [id]);
 
   res.status(204).end();
   // Disconnect from database
