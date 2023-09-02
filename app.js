@@ -14,7 +14,7 @@ app.use(express.json());
 app.get("/pet", (req, res) => {
   const db = dbConnect();
 
-  //   Base information
+  // Base information
   const sql = `
     SELECT
        p.id petID,
@@ -59,7 +59,7 @@ app.get("/pet", (req, res) => {
       });
     });
 
-    // Add phot_urls to the response
+    // Add photo_urls to the response
     const promises_getPhotUrl = formattedResponse.map((pet) => {
       return new Promise((resolve, reject) => {
         db.all(sqlPhots, [pet.id], (err, photos) => {
@@ -172,7 +172,83 @@ app.post("/pet", (req, res) => {
   });
 });
 
-// Get a pet by petId
+// Search a pets by status
+app.get("/pet/findByStatus", (req, res) => {
+  const db = dbConnect();
+
+  // Get request body
+  const status = req.query.status;
+
+  // Base information
+  const sql_getPets = `
+    SELECT
+       p.id petID,
+       p.category_id categoryID,
+       c.name categoryName,
+       p.name petName,
+       p.status petStatus
+    FROM pets p 
+    LEFT JOIN categories c ON p.category_id = c.id
+    WHERE status = ?;`;
+
+  // Tags
+  const sql_getTags = `
+    SELECT 
+       t.id tagID,
+       t.name tagName
+    FROM tags t
+    JOIN pet_tags pt ON pt.tag_id = t.id
+    WHERE pt.pet_id = ? `;
+
+  // Phot Urls
+  const sql_getPetPhotos = `
+    SELECT 
+      pp.photo_url photoURL
+    FROM pet_photos pp
+    WHERE pp.pet_id = ? `;
+
+  // Create base information
+  db.all(sql_getPets, [status], (err, rows) => {
+    const formattedResponse = rows.map((row) => ({
+      id: row.petID,
+      category: { id: row.categoryID, name: row.categoryName },
+      name: row.petName,
+      tags: [],
+      status: row.petStatus,
+      photoUrls: [],
+    }));
+
+    // Add tags to the response
+    const promise_getTags = formattedResponse.map((pet) => {
+      return new Promise((resolve, reject) => {
+        db.all(sql_getTags, [pet.id], (err, tags) => {
+          pet.tags = tags.map((tag) => ({ id: tag.tagID, name: tag.tagName }));
+          resolve();
+        });
+      });
+    });
+
+    // Add photo_urls to the response
+    const promises_getPhotUrl = formattedResponse.map((pet) => {
+      return new Promise((resolve, reject) => {
+        db.all(sql_getPetPhotos, [pet.id], (err, photos) => {
+          pet.photoUrls = photos.map((photo) => photo.photoURL);
+          resolve();
+        });
+      });
+    });
+
+    // After all promises, respond and close DB.
+    Promise.all([...promise_getTags, ...promises_getPhotUrl]).then(() => {
+      res.json(formattedResponse);
+
+      // Disconnect from database
+      db.close();
+    });
+  });
+});
+
+// Search a pet by petId
 app.get("/pet/:id", (req, res) => {
   const db = dbConnect();
   const id = req.params.id;
