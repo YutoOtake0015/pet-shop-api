@@ -5,7 +5,15 @@ const sqlite3 = require("sqlite3");
 
 // Connect to database
 const dbFile = "database.sqlite3";
-const dbConnect = () => new sqlite3.Database(dbFile);
+const dbConnect = () => {
+  // Create a new database connection
+  const db = new sqlite3.Database(dbFile);
+
+  // Enable foreign key constraints for this connection
+  db.run("PRAGMA foreign_keys=ON");
+
+  return db;
+};
 
 // Middleware applied
 app.use(express.json());
