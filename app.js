@@ -256,6 +256,119 @@ app.get("/pet/findByStatus", (req, res) => {
   });
 });
 
+// Search a pets by tags
+app.get("/pet/findByTags", (req, res) => {
+  const db = dbConnect();
+
+  // Get request body
+  const tags = req.query.tags;
+  const tagArray = tags.split(",");
+
+  // Get the tag's ids from the request parameters
+  const tagsPlaceholder = tagArray.map(() => "?").join(", ");
+  const sql_getTags = `
+    SELECT 
+        DISTINCT id tagID,
+        name tagName
+    FROM tags
+    WHERE name IN (${tagsPlaceholder});`;
+
+  db.all(sql_getTags, tagArray, (err, tags) => {
+    const tag_ids = tags.map((tag) => tag.tagID);
+
+    // Get pet_id from pet_tags using tag's id
+    const tagIdsOfPetTags = tag_ids.map(() => "?").join(", ");
+    const sql_getPetIds = `
+      SELECT
+          DISTINCT pt.pet_id petId
+      FROM pet_tags pt
+      JOIN tags t ON t.id = pt.tag_id
+      WHERE pt.tag_id IN (${tagIdsOfPetTags})
+      ORDER BY petId;`;
+
+    db.all(sql_getPetIds, tag_ids, (err, petIds) => {
+      // Create base information
+      const petIdsOfPetTags = petIds.map(() => "?").join(", ");
+      const sql_getPets = `
+      SELECT
+         DISTINCT p.id petID,
+         p.category_id categoryID,
+         c.name categoryName,
+         p.name petName,
+         p.status petStatus
+      FROM pets p 
+      LEFT JOIN categories c ON p.category_id = c.id
+      JOIN pet_tags pt ON pt.pet_id = p.id
+      WHERE p.id IN (${petIdsOfPetTags});`;
+
+      const pet_ids = Object.values(petIds);
+      const getPetIdArray = () => {
+        let petIdArray = [];
+        for (let obj of petIds) {
+          petIdArray.push(obj.petId);
+        }
+        return petIdArray;
+      };
+
+      db.all(sql_getPets, getPetIdArray(), (err, pets) => {
+        const formattedResponse = pets.map((pet) => ({
+          id: pet.petID,
+          category: { id: pet.categoryID, name: pet.categoryName },
+          name: pet.petName,
+          tags: [],
+          status: pet.petStatus,
+          photoUrls: [],
+        }));
+
+        // Add tags to the response
+        const sql_getTags = `
+        SELECT 
+        DISTINCT t.id tagID,
+           t.name tagName
+        FROM tags t
+        JOIN pet_tags pt ON pt.tag_id = t.id
+        WHERE pt.pet_id = ? `;
+
+        const promise_getTags = formattedResponse.map((pet) => {
+          return new Promise((resolve, reject) => {
+            db.all(sql_getTags, [pet.id], (err, tags) => {
+              pet.tags = tags.map((tag) => ({
+                id: tag.tagID,
+                name: tag.tagName,
+              }));
+              resolve();
+            });
+          });
+        });
+
+        // Add photo_urls to the response
+        const sql_getPetPhotos = `
+        SELECT 
+          pp.photo_url photoURL
+        FROM pet_photos pp
+        WHERE pp.pet_id = ? `;
+
+        const promises_getPhotUrls = formattedResponse.map((pet) => {
+          return new Promise((resolve, reject) => {
+            db.all(sql_getPetPhotos, [pet.id], (err, photos) => {
+              pet.photoUrls = photos.map((photo) => photo.photoURL);
+              resolve();
+            });
+          });
+        });
+
+        // After all promises, respond and close DB.
+        Promise.all([...promise_getTags, ...promises_getPhotUrls]).then(() => {
+          res.json(formattedResponse);
+
+          // Disconnect from database
+          db.close();
+        });
+      });
+    });
+  });
+});
+
 // Search a pet by petId
 app.get("/pet/:id", (req, res) => {
   const db = dbConnect();
