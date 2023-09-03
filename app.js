@@ -23,8 +23,8 @@ app.use(express.json());
 app.get("/pet", (req, res) => {
   const db = dbConnect();
 
-  // Base information
-  const sql = `
+  // SELECT pets's information
+  const selectPets = `
     SELECT
        p.id petID,
        p.category_id categoryID,
@@ -34,8 +34,8 @@ app.get("/pet", (req, res) => {
     FROM pets p 
     JOIN categories c ON p.category_id = c.id;`;
 
-  // Tags
-  const sqlTags = `
+  // SELECT tags's information using pet_id
+  const selectTags = `
     SELECT 
        t.id tagID,
        t.name tagName
@@ -43,36 +43,36 @@ app.get("/pet", (req, res) => {
     JOIN pet_tags pt ON pt.tag_id = t.id
     WHERE pt.pet_id = ? `;
 
-  // Phot Urls
-  const sqlPhots = `
+  // SELECT pet_photos's information using pet_id
+  const selectPhots = `
     SELECT 
       pp.photo_url photoURL
     FROM pet_photos pp
     WHERE pp.pet_id = ? `;
 
-  // Create base information
-  db.all(sql, (err, rows) => {
-    const formattedResponse = rows.map((row) => ({
-      id: row.petID,
-      category: { id: row.categoryID, name: row.categoryName },
-      name: row.petName,
-      status: row.petStatus,
+  // Create base response
+  db.all(selectPets, (err, pets) => {
+    const formattedResponse = pets.map((pet) => ({
+      id: pet.petID,
+      category: { id: pet.categoryID, name: pet.categoryName },
+      name: pet.petName,
+      status: pet.petStatus,
     }));
 
-    // Add tags to the response
+    // Add pet.tags to the response
     const promises_getTags = formattedResponse.map((pet) => {
       return new Promise((resolve, reject) => {
-        db.all(sqlTags, [pet.id], (err, tags) => {
+        db.all(selectTags, [pet.id], (err, tags) => {
           pet.tags = tags.map((tag) => ({ id: tag.tagID, name: tag.tagName }));
           resolve();
         });
       });
     });
 
-    // Add photo_urls to the response
+    // Add pet.photoUrls to the response
     const promises_getPhotUrl = formattedResponse.map((pet) => {
       return new Promise((resolve, reject) => {
-        db.all(sqlPhots, [pet.id], (err, photos) => {
+        db.all(selectPhots, [pet.id], (err, photos) => {
           pet.photoUrls = photos.map((photo) => photo.photoURL);
           resolve();
         });
@@ -82,19 +82,17 @@ app.get("/pet", (req, res) => {
     // After all promises, respond and close DB.
     Promise.all([...promises_getTags, ...promises_getPhotUrl]).then(() => {
       res.json(formattedResponse);
-
-      // Disconnect from database
       db.close();
     });
   });
 });
 
 // 2: ****************************************************************
-// Post a pet
+// Post a new pet
 app.post("/pet", (req, res) => {
   const db = dbConnect();
 
-  // Get request body
+  // Get request
   const id = req.body.id;
   const category = req.body.category ? req.body.category : null;
   const name = req.body.name ? req.body.name : "";
@@ -102,93 +100,89 @@ app.post("/pet", (req, res) => {
   const tags = req.body.tags ? req.body.tags : null;
   const status = req.body.status ? req.body.status : "";
 
-  const promise_addPets = new Promise((resolve, reject) => {
-    // Add pets
-    const sql_addPets = `
+  // Add information to pets
+  const promise_insertPets = new Promise((resolve, reject) => {
+    // Create SQL
+    const insertPets = `
     INSERT INTO pets (category_id, name, status)
     VALUES ("${category.id}", "${name}", "${status}");`;
 
-    resolve(sql_addPets);
+    resolve(insertPets);
   });
 
-  const promise_addTags = new Promise((resolve, reject) => {
-    // Add tags
-    let sql_addTags = "INSERT INTO tags (id, name) VALUES";
+  // Add information to tags
+  const promise_insertTags = new Promise((resolve, reject) => {
+    // Create SQL
+    let insertTags = "INSERT INTO tags (id, name) VALUES";
+    tags.forEach((tag, index) => {
+      const valuesToTags = `("${tag.id}", "${tag.name}")`;
+      insertTags += index === 0 ? valuesToTags : "," + valuesToTags;
+    });
+    insertTags += ";";
+
+    resolve(insertTags);
+  });
+
+  // Add information to pet_tags
+  const promise_insertPetTags = new Promise((resolve, reject) => {
+    // Create SQL
+    let insertPetTags = "INSERT INTO pet_tags (pet_id, tag_id) VALUES";
     tags.forEach((tag, index) => {
       const tag_id = tag.id;
-      const tag_name = tag.name;
-      const sql_right_addTags = `("${tag_id}", "${tag_name}")`;
+      const valuesToPetTags = `("${id}", "${tag_id}")`;
 
-      sql_addTags += index === 0 ? sql_right_addTags : "," + sql_right_addTags;
+      insertPetTags += index === 0 ? valuesToPetTags : "," + valuesToPetTags;
     });
+    insertPetTags += ";";
 
-    resolve(sql_addTags);
+    resolve(insertPetTags);
   });
 
-  // Add pet_tags
-  const promise_addPetTags = new Promise((resolve, reject) => {
-    // Add tags
-    let sql_addPetTags = "INSERT INTO pet_tags (pet_id, tag_id) VALUES";
-    tags.forEach((tag, index) => {
-      const tag_id = tag.id;
-      const sql_right_addPetTags = `("${id}", "${tag_id}")`;
+  // Add information to categories
+  const promise_insertCategories = new Promise((resolve, reject) => {
+    // Create SQL
+    let insertCategories = `INSERT INTO categories (id, name) VALUES ("${category.id}", "${category.name}")`;
 
-      sql_addPetTags +=
-        index === 0 ? sql_right_addPetTags : "," + sql_right_addPetTags;
-    });
-
-    resolve(sql_addPetTags);
+    resolve(insertCategories);
   });
 
-  // Add categories
-  const promise_addCategories = new Promise((resolve, reject) => {
-    // Add tags
-    let sql_addCategories = "INSERT INTO categories (id, name) VALUES";
-    const category_id = category.id;
-    const category_name = category.name;
-    const sql_right_addCategories = `("${category_id}", "${category_name}")`;
-
-    sql_addCategories += sql_right_addCategories;
-
-    resolve(sql_addCategories);
-  });
-
-  // Add pet_photos
-  const promise_addPetPhotos = new Promise((resolve, reject) => {
-    // Add tags
-    let sql_addPetPhotos = "INSERT INTO pet_photos (pet_id, photo_url) VALUES";
+  // Add information to pet_photos
+  const promise_insertPetPhotos = new Promise((resolve, reject) => {
+    // Create SQL
+    let insertPetPhotos = "INSERT INTO pet_photos (pet_id, photo_url) VALUES";
     photoUrls.forEach((photoUrl, index) => {
-      const sql_right_addPetPhotos = `("${id}", "${photoUrl}")`;
+      const valuesToPetPhotos = `("${id}", "${photoUrl}")`;
 
-      sql_addPetPhotos +=
-        index === 0 ? sql_right_addPetPhotos : "," + sql_right_addPetPhotos;
+      insertPetPhotos +=
+        index === 0 ? valuesToPetPhotos : "," + valuesToPetPhotos;
     });
-    resolve(sql_addPetPhotos);
+    insertPetPhotos += ";";
+    resolve(insertPetPhotos);
   });
 
+  // After all promises, respond and close DB.
   Promise.all([
-    promise_addPets,
-    promise_addTags,
-    promise_addPetTags,
-    promise_addCategories,
-    promise_addPetPhotos,
+    promise_insertPets,
+    promise_insertTags,
+    promise_insertPetTags,
+    promise_insertCategories,
+    promise_insertPetPhotos,
   ]).then((queries) => {
     queries.forEach((query) => {
       db.run(query);
     });
 
-    // Disconnect from database
     res.redirect("/pet");
     db.close();
   });
 });
 
 // 3: ****************************************************************
-// Change a pet by petId
+// Change a pet's information by petId
 app.put("/pet", (req, res) => {
   const db = dbConnect();
 
-  // Get request body
+  // Get request
   const id = req.body.id;
   const category = req.body.category ? req.body.category : null;
   const name = req.body.name ? req.body.name : "";
@@ -198,7 +192,7 @@ app.put("/pet", (req, res) => {
 
   // Update pets record by id
   const promise_updatePets = new Promise((resolve, reject) => {
-    // Add pets
+    // Create SQL
     const updatePets = `
     UPDATE pets
     SET 
@@ -213,41 +207,43 @@ app.put("/pet", (req, res) => {
   // Delete and update pet_tags by id
   // Delete pet_tags
   const promise_deleteTags = new Promise((resolve, reject) => {
+    // Create SQL
     const deletePetTags = `DELETE FROM pet_tags WHERE pet_id = ${id};`;
     resolve(deletePetTags);
   });
 
   // Insert pet_tags
   const promise_insertTags = new Promise((resolve, reject) => {
+    // Create SQL
     let insertPetTags = "INSERT INTO pet_tags (pet_id, tag_id) VALUES";
-
     tags.forEach((tag, index) => {
       const valuesToPetTags = ` (${id}, ${tag.id})`;
-
       insertPetTags += index === 0 ? valuesToPetTags : "," + valuesToPetTags;
     });
     insertPetTags += ";";
+
     resolve(insertPetTags);
   });
 
   // Delete and update pet_photos by id
   // Delete pet_photos
   const promise_deletePetPhotos = new Promise((resolve, reject) => {
+    // Create SQL
     const deletePetPhotos = `DELETE FROM pet_photos WHERE pet_id = '${id}'`;
     resolve(deletePetPhotos);
   });
 
   // Insert pet_photos
   const promise_insertPetPhotos = new Promise((resolve, reject) => {
-    // Add tags
+    // Create SQL
     let insertPetPhotos = "INSERT INTO pet_photos (pet_id, photo_url) VALUES";
     photoUrls.forEach((photoUrl, index) => {
       const valuesToPetPhotos = `(${id}, "${photoUrl}")`;
-
       insertPetPhotos +=
         index === 0 ? valuesToPetPhotos : "," + valuesToPetPhotos;
     });
     insertPetPhotos += ";";
+
     resolve(insertPetPhotos);
   });
 
@@ -263,7 +259,6 @@ app.put("/pet", (req, res) => {
       db.run(query);
     });
 
-    // Disconnect from database
     res.redirect("/pet");
     db.close();
   });
@@ -274,11 +269,11 @@ app.put("/pet", (req, res) => {
 app.get("/pet/findByStatus", (req, res) => {
   const db = dbConnect();
 
-  // Get request body
+  // Get request
   const status = req.query.status;
 
-  // Base information
-  const sql_getPets = `
+  // SELECT pets' information using status
+  const selectPets = `
     SELECT
        p.id petID,
        p.category_id categoryID,
@@ -287,10 +282,10 @@ app.get("/pet/findByStatus", (req, res) => {
        p.status petStatus
     FROM pets p 
     LEFT JOIN categories c ON p.category_id = c.id
-    WHERE status = ?;`;
+    WHERE p.status = ?;`;
 
-  // Tags
-  const sql_getTags = `
+  // SELECT tags's information using pet_id
+  const selectTags = `
     SELECT 
        t.id tagID,
        t.name tagName
@@ -298,28 +293,28 @@ app.get("/pet/findByStatus", (req, res) => {
     JOIN pet_tags pt ON pt.tag_id = t.id
     WHERE pt.pet_id = ? `;
 
-  // Phot Urls
-  const sql_getPetPhotos = `
+  // SELECT pet_photos'information using pet_id
+  const selectPetPhotos = `
     SELECT 
       pp.photo_url photoURL
     FROM pet_photos pp
     WHERE pp.pet_id = ? `;
 
   // Create base information
-  db.all(sql_getPets, [status], (err, rows) => {
-    const formattedResponse = rows.map((row) => ({
-      id: row.petID,
-      category: { id: row.categoryID, name: row.categoryName },
-      name: row.petName,
+  db.all(selectPets, [status], (err, pets) => {
+    const formattedResponse = pets.map((pet) => ({
+      id: pet.petID,
+      category: { id: pet.categoryID, name: pet.categoryName },
+      name: pet.petName,
       tags: [],
-      status: row.petStatus,
+      status: pet.petStatus,
       photoUrls: [],
     }));
 
     // Add tags to the response
     const promise_getTags = formattedResponse.map((pet) => {
       return new Promise((resolve, reject) => {
-        db.all(sql_getTags, [pet.id], (err, tags) => {
+        db.all(selectTags, [pet.id], (err, tags) => {
           pet.tags = tags.map((tag) => ({ id: tag.tagID, name: tag.tagName }));
           resolve();
         });
@@ -329,7 +324,7 @@ app.get("/pet/findByStatus", (req, res) => {
     // Add photo_urls to the response
     const promises_getPhotUrl = formattedResponse.map((pet) => {
       return new Promise((resolve, reject) => {
-        db.all(sql_getPetPhotos, [pet.id], (err, photos) => {
+        db.all(selectPetPhotos, [pet.id], (err, photos) => {
           pet.photoUrls = photos.map((photo) => photo.photoURL);
           resolve();
         });
@@ -357,19 +352,19 @@ app.get("/pet/findByTags", (req, res) => {
 
   // Get the tag's ids from the request parameters
   const tagsPlaceholder = tagArray.map(() => "?").join(", ");
-  const sql_getTags = `
+  const selectTags = `
     SELECT 
         DISTINCT id tagID,
         name tagName
     FROM tags
     WHERE name IN (${tagsPlaceholder});`;
 
-  db.all(sql_getTags, tagArray, (err, tags) => {
+  // Get pet_id from pet_tags using tag's id
+  db.all(selectTags, tagArray, (err, tags) => {
+    // Create SQL
     const tag_ids = tags.map((tag) => tag.tagID);
-
-    // Get pet_id from pet_tags using tag's id
     const tagIdsOfPetTags = tag_ids.map(() => "?").join(", ");
-    const sql_getPetIds = `
+    const selectPetIdsOfPetTags = `
       SELECT
           DISTINCT pt.pet_id petId
       FROM pet_tags pt
@@ -377,10 +372,11 @@ app.get("/pet/findByTags", (req, res) => {
       WHERE pt.tag_id IN (${tagIdsOfPetTags})
       ORDER BY petId;`;
 
-    db.all(sql_getPetIds, tag_ids, (err, petIds) => {
-      // Create base information
+    // Get pets using petIds
+    db.all(selectPetIdsOfPetTags, tag_ids, (err, petIds) => {
+      // Create SQL
       const petIdsOfPetTags = petIds.map(() => "?").join(", ");
-      const sql_getPets = `
+      const selectPets = ` 
       SELECT
          DISTINCT p.id petID,
          p.category_id categoryID,
@@ -392,7 +388,6 @@ app.get("/pet/findByTags", (req, res) => {
       JOIN pet_tags pt ON pt.pet_id = p.id
       WHERE p.id IN (${petIdsOfPetTags});`;
 
-      const pet_ids = Object.values(petIds);
       const getPetIdArray = () => {
         let petIdArray = [];
         for (let obj of petIds) {
@@ -401,7 +396,8 @@ app.get("/pet/findByTags", (req, res) => {
         return petIdArray;
       };
 
-      db.all(sql_getPets, getPetIdArray(), (err, pets) => {
+      // Create base response
+      db.all(selectPets, getPetIdArray(), (err, pets) => {
         const formattedResponse = pets.map((pet) => ({
           id: pet.petID,
           category: { id: pet.categoryID, name: pet.categoryName },
@@ -412,7 +408,7 @@ app.get("/pet/findByTags", (req, res) => {
         }));
 
         // Add tags to the response
-        const sql_getTags = `
+        const selectTags = `
         SELECT 
         DISTINCT t.id tagID,
            t.name tagName
@@ -422,7 +418,7 @@ app.get("/pet/findByTags", (req, res) => {
 
         const promise_getTags = formattedResponse.map((pet) => {
           return new Promise((resolve, reject) => {
-            db.all(sql_getTags, [pet.id], (err, tags) => {
+            db.all(selectTags, [pet.id], (err, tags) => {
               pet.tags = tags.map((tag) => ({
                 id: tag.tagID,
                 name: tag.tagName,
@@ -433,7 +429,7 @@ app.get("/pet/findByTags", (req, res) => {
         });
 
         // Add photo_urls to the response
-        const sql_getPetPhotos = `
+        const selectPetPhotos = `
         SELECT 
           pp.photo_url photoURL
         FROM pet_photos pp
@@ -441,7 +437,7 @@ app.get("/pet/findByTags", (req, res) => {
 
         const promises_getPhotUrls = formattedResponse.map((pet) => {
           return new Promise((resolve, reject) => {
-            db.all(sql_getPetPhotos, [pet.id], (err, photos) => {
+            db.all(selectPetPhotos, [pet.id], (err, photos) => {
               pet.photoUrls = photos.map((photo) => photo.photoURL);
               resolve();
             });
@@ -466,45 +462,46 @@ app.get("/pet/:id", (req, res) => {
   const db = dbConnect();
   const id = req.params.id;
 
-  //   Base information
-  const sql = `
-    SELECT
-       p.id petID,
-       p.category_id categoryID,
-       c.name categoryName,
-       p.name petName,
-       p.status petStatus
-    FROM pets p 
-    JOIN categories c ON p.category_id = c.id
-    WHERE p.id = ?;`;
+  // SELECT pets's information using petId
+  const selectPets = `
+  SELECT
+     p.id petID,
+     p.category_id categoryID,
+     c.name categoryName,
+     p.name petName,
+     p.status petStatus
+  FROM pets p 
+  JOIN categories c ON p.category_id = c.id
+  WHERE p.id = ?;`;
 
-  // Tags
-  const sqlTags = `
-    SELECT 
-       t.id tagID,
-       t.name tagName
-    FROM tags t
-    JOIN pet_tags pt ON pt.tag_id = t.id
-    WHERE pt.pet_id = ? `;
+  // SELECT tag's information using pet_id
+  const selectTags = `
+  SELECT 
+     t.id tagID,
+     t.name tagName
+  FROM tags t
+  JOIN pet_tags pt ON pt.tag_id = t.id
+  WHERE pt.pet_id = ? `;
 
-  // Phot Urls
-  const sqlPhots = `
-    SELECT 
-      pp.photo_url photoURL
-    FROM pet_photos pp
-    WHERE pp.pet_id = ? `;
+  // SELECT pet_photos's information using pet_id
+  const selectPetPhots = `
+  SELECT 
+    pp.photo_url photoURL
+  FROM pet_photos pp
+  WHERE pp.pet_id = ? `;
 
   // Create base information
-  db.get(sql, [id], (err, row) => {
+  db.get(selectPets, [id], (err, pet) => {
     const formattedResponse = {
-      id: row.petID,
-      category: { id: row.categoryID, name: row.categoryName },
-      name: row.petName,
-      status: row.petStatus,
+      id: pet.petID,
+      category: { id: pet.categoryID, name: pet.categoryName },
+      name: pet.petName,
+      status: pet.petStatus,
     };
 
+    // Add tags's information to the response
     const promises_getTags = new Promise((resolve, reject) => {
-      db.all(sqlTags, [formattedResponse.id], (err, tags) => {
+      db.all(selectTags, [formattedResponse.id], (err, tags) => {
         formattedResponse.tags = tags.map((tag) => ({
           id: tag.tagID,
           name: tag.tagName,
@@ -513,8 +510,9 @@ app.get("/pet/:id", (req, res) => {
       });
     });
 
+    // Add pet_photos's information to the response
     const promises_getPhotUrl = new Promise((resolve, reject) => {
-      db.all(sqlPhots, [formattedResponse.id], (err, photos) => {
+      db.all(selectPetPhots, [formattedResponse.id], (err, photos) => {
         formattedResponse.photoUrls = photos.map((photo) => photo.photoURL);
         resolve();
       });
@@ -523,8 +521,6 @@ app.get("/pet/:id", (req, res) => {
     // After all promises, respond and close DB.
     Promise.all([promises_getTags, promises_getPhotUrl]).then(() => {
       res.json(formattedResponse);
-
-      //  Disconnect from database
       db.close();
     });
   });
@@ -540,14 +536,13 @@ app.post("/pet/:id", (req, res) => {
   const name = req.body.name ? req.body.name : "";
   const status = req.body.status ? req.body.status : "";
 
-  const sql_changePet = `
+  // Execute the SQL
+  const changePet = `
     UPDATE pets SET name = ?, status = ?
     WHERE id = ? ;`;
-
-  db.run(sql_changePet, [name, status, id]);
+  db.run(changePet, [name, status, id]);
 
   res.status(204).end();
-  // Disconnect from database
   db.close();
 });
 
@@ -556,17 +551,16 @@ app.post("/pet/:id", (req, res) => {
 app.delete("/pet/:id", (req, res) => {
   const db = dbConnect();
 
-  // Get parameter
+  // Get request
   const id = req.params.id;
 
-  const sql_deletePet = `
+  // Execute the SQL
+  const deletePet = `
     DELETE FROM pets 
     WHERE id = ? ;`;
-
-  db.run(sql_deletePet, [id]);
+  db.run(deletePet, [id]);
 
   res.status(204).end();
-  // Disconnect from database
   db.close();
 });
 
