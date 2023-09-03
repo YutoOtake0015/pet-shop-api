@@ -70,6 +70,7 @@ CREATE TABLE pet_photos (
 
 # Create sample data
 ```
+
 INSERT INTO pets (id, category_id, name, status) VALUES (1, 1, 'Buddy', 'available');
 INSERT INTO pets (id, category_id, name, status) VALUES (2, 2, 'Whiskers', 'pending');
 INSERT INTO pets (id, category_id, name, status) VALUES (3, 3, 'Taro', 'available');
@@ -83,15 +84,14 @@ INSERT INTO categories (name) VALUES ('Hound Dogs');
 INSERT INTO tags (name) VALUES ('Small');
 INSERT INTO tags (name) VALUES ('Cute');
 INSERT INTO tags (name) VALUES ('Wild');
+INSERT INTO tags (name) VALUES ('Large');
+
 
 INSERT INTO pet_tags (pet_id, tag_id) VALUES (1, 1);
 INSERT INTO pet_tags (pet_id, tag_id) VALUES (1, 2);
 INSERT INTO pet_tags (pet_id, tag_id) VALUES (2, 3);
-INSERT INTO pet_tags (pet_id, tag_id) VALUES (2, 1);
-INSERT INTO pet_tags (pet_id, tag_id) VALUES (3, 2);
-INSERT INTO pet_tags (pet_id, tag_id) VALUES (3, 3);
+INSERT INTO pet_tags (pet_id, tag_id) VALUES (3, 4);
 INSERT INTO pet_tags (pet_id, tag_id) VALUES (4, 1);
-INSERT INTO pet_tags (pet_id, tag_id) VALUES (4, 2);
 
 INSERT INTO pet_photos (pet_id, photo_url) VALUES (1, 'http://example.com/buddy001.jpg');
 INSERT INTO pet_photos (pet_id, photo_url) VALUES (1, 'http://example.com/buddy002.jpg');
