@@ -18,6 +18,7 @@ const dbConnect = () => {
 // Middleware applied
 app.use(express.json());
 
+// 1: ****************************************************************
 // Get all pets
 app.get("/pet", (req, res) => {
   const db = dbConnect();
@@ -32,6 +33,7 @@ app.get("/pet", (req, res) => {
        p.status petStatus
     FROM pets p 
     JOIN categories c ON p.category_id = c.id;`;
+
   // Tags
   const sqlTags = `
     SELECT 
@@ -87,6 +89,7 @@ app.get("/pet", (req, res) => {
   });
 });
 
+// 2: ****************************************************************
 // Post a pet
 app.post("/pet", (req, res) => {
   const db = dbConnect();
@@ -180,6 +183,93 @@ app.post("/pet", (req, res) => {
   });
 });
 
+// 3: ****************************************************************
+// Change a pet by petId
+app.put("/pet", (req, res) => {
+  const db = dbConnect();
+
+  // Get request body
+  const id = req.body.id;
+  const category = req.body.category ? req.body.category : null;
+  const name = req.body.name ? req.body.name : "";
+  const photoUrls = req.body.photoUrls ? req.body.photoUrls : null;
+  const tags = req.body.tags ? req.body.tags : null;
+  const status = req.body.status ? req.body.status : "";
+
+  // Update pets record by id
+  const promise_updatePets = new Promise((resolve, reject) => {
+    // Add pets
+    const updatePets = `
+    UPDATE pets
+    SET 
+      category_id = ${category.id} ,
+      name = "${name}" ,
+      status = "${status}" 
+    WHERE id = ${id};`;
+
+    resolve(updatePets);
+  });
+
+  // Delete and update pet_tags by id
+  // Delete pet_tags
+  const promise_deleteTags = new Promise((resolve, reject) => {
+    const deletePetTags = `DELETE FROM pet_tags WHERE pet_id = ${id};`;
+    resolve(deletePetTags);
+  });
+
+  // Insert pet_tags
+  const promise_insertTags = new Promise((resolve, reject) => {
+    let insertPetTags = "INSERT INTO pet_tags (pet_id, tag_id) VALUES";
+
+    tags.forEach((tag, index) => {
+      const valuesToPetTags = ` (${id}, ${tag.id})`;
+
+      insertPetTags += index === 0 ? valuesToPetTags : "," + valuesToPetTags;
+    });
+    insertPetTags += ";";
+    resolve(insertPetTags);
+  });
+
+  // Delete and update pet_photos by id
+  // Delete pet_photos
+  const promise_deletePetPhotos = new Promise((resolve, reject) => {
+    const deletePetPhotos = `DELETE FROM pet_photos WHERE pet_id = '${id}'`;
+    resolve(deletePetPhotos);
+  });
+
+  // Insert pet_photos
+  const promise_insertPetPhotos = new Promise((resolve, reject) => {
+    // Add tags
+    let insertPetPhotos = "INSERT INTO pet_photos (pet_id, photo_url) VALUES";
+    photoUrls.forEach((photoUrl, index) => {
+      const valuesToPetPhotos = `(${id}, "${photoUrl}")`;
+
+      insertPetPhotos +=
+        index === 0 ? valuesToPetPhotos : "," + valuesToPetPhotos;
+    });
+    insertPetPhotos += ";";
+    resolve(insertPetPhotos);
+  });
+
+  // After all promises, respond and close DB.
+  Promise.all([
+    promise_updatePets,
+    promise_deleteTags,
+    promise_insertTags,
+    promise_deletePetPhotos,
+    promise_insertPetPhotos,
+  ]).then((queries) => {
+    queries.forEach((query) => {
+      db.run(query);
+    });
+
+    // Disconnect from database
+    res.redirect("/pet");
+    db.close();
+  });
+});
+
+// 4: ****************************************************************
 // Search a pets by status
 app.get("/pet/findByStatus", (req, res) => {
   const db = dbConnect();
@@ -256,6 +346,7 @@ app.get("/pet/findByStatus", (req, res) => {
   });
 });
 
+// 5: ****************************************************************
 // Search a pets by tags
 app.get("/pet/findByTags", (req, res) => {
   const db = dbConnect();
@@ -369,6 +460,7 @@ app.get("/pet/findByTags", (req, res) => {
   });
 });
 
+// 6: ****************************************************************
 // Search a pet by petId
 app.get("/pet/:id", (req, res) => {
   const db = dbConnect();
@@ -438,7 +530,8 @@ app.get("/pet/:id", (req, res) => {
   });
 });
 
-// Change a pet by petId
+// 7: ****************************************************************
+// Change a petName and petStatus  by petId
 app.post("/pet/:id", (req, res) => {
   const db = dbConnect();
 
@@ -458,6 +551,7 @@ app.post("/pet/:id", (req, res) => {
   db.close();
 });
 
+// 8: ****************************************************************
 // Delete a pet by petId
 app.delete("/pet/:id", (req, res) => {
   const db = dbConnect();
