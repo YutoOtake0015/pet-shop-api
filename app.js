@@ -46,9 +46,9 @@ app.get("/pet", (req, res) => {
   // SELECT pet_photos's information using pet_id
   const selectPhots = `
     SELECT 
-      pp.photo_url photoURL
-    FROM pet_photos pp
-    WHERE pp.pet_id = ? `;
+      photo_url photoURL
+    FROM pet_photos 
+    WHERE pet_id = ? `;
 
   // Create base response
   db.all(selectPets, (err, pets) => {
@@ -81,7 +81,7 @@ app.get("/pet", (req, res) => {
 
     // After all promises, respond and close DB.
     Promise.all([...promises_getTags, ...promises_getPhotUrl]).then(() => {
-      res.json(formattedResponse);
+      res.status(200).json(formattedResponse);
       db.close();
     });
   });
@@ -104,8 +104,8 @@ app.post("/pet", (req, res) => {
   const promise_insertPets = new Promise((resolve, reject) => {
     // Create SQL
     const insertPets = `
-    INSERT INTO pets (category_id, name, status)
-    VALUES ("${category.id}", "${name}", "${status}");`;
+        INSERT INTO pets (category_id, name, status)
+        VALUES ("${category.id}", "${name}", "${status}");`;
 
     resolve(insertPets);
   });
@@ -190,78 +190,108 @@ app.put("/pet", (req, res) => {
   const tags = req.body.tags ? req.body.tags : null;
   const status = req.body.status ? req.body.status : "";
 
-  // Update pets record by id
-  const promise_updatePets = new Promise((resolve, reject) => {
-    // Create SQL
-    const updatePets = `
-    UPDATE pets
-    SET 
-      category_id = ${category.id} ,
-      name = "${name}" ,
-      status = "${status}" 
-    WHERE id = ${id};`;
+  // Check request's id
+  let idError = false;
+  const num = Number(id);
+  if (isNaN(num)) {
+    return res.status(400).json({ error: "Invalid ID supplied" });
+    idError = true;
+  }
 
-    resolve(updatePets);
-  });
-
-  // Delete and update pet_tags by id
-  // Delete pet_tags
-  const promise_deleteTags = new Promise((resolve, reject) => {
-    // Create SQL
-    const deletePetTags = `DELETE FROM pet_tags WHERE pet_id = ${id};`;
-    resolve(deletePetTags);
-  });
-
-  // Insert pet_tags
-  const promise_insertTags = new Promise((resolve, reject) => {
-    // Create SQL
-    let insertPetTags = "INSERT INTO pet_tags (pet_id, tag_id) VALUES";
-    tags.forEach((tag, index) => {
-      const valuesToPetTags = ` (${id}, ${tag.id})`;
-      insertPetTags += index === 0 ? valuesToPetTags : "," + valuesToPetTags;
-    });
-    insertPetTags += ";";
-
-    resolve(insertPetTags);
-  });
-
-  // Delete and update pet_photos by id
-  // Delete pet_photos
-  const promise_deletePetPhotos = new Promise((resolve, reject) => {
-    // Create SQL
-    const deletePetPhotos = `DELETE FROM pet_photos WHERE pet_id = '${id}'`;
-    resolve(deletePetPhotos);
-  });
-
-  // Insert pet_photos
-  const promise_insertPetPhotos = new Promise((resolve, reject) => {
-    // Create SQL
-    let insertPetPhotos = "INSERT INTO pet_photos (pet_id, photo_url) VALUES";
-    photoUrls.forEach((photoUrl, index) => {
-      const valuesToPetPhotos = `(${id}, "${photoUrl}")`;
-      insertPetPhotos +=
-        index === 0 ? valuesToPetPhotos : "," + valuesToPetPhotos;
-    });
-    insertPetPhotos += ";";
-
-    resolve(insertPetPhotos);
-  });
-
-  // After all promises, respond and close DB.
-  Promise.all([
-    promise_updatePets,
-    promise_deleteTags,
-    promise_insertTags,
-    promise_deletePetPhotos,
-    promise_insertPetPhotos,
-  ]).then((queries) => {
-    queries.forEach((query) => {
-      db.run(query);
+  if (!idError) {
+    // Check requested data exists in the table
+    let foundPet = false;
+    const selectRequestPet = `SELECT COUNT(*) count FROM pets WHERE id = ?;`;
+    const promise_checkRequest = new Promise((resolve, reject) => {
+      db.get(selectRequestPet, [id], (err, pet) => {
+        if (pet.count === 0) {
+          foundPet = true;
+        }
+        resolve();
+      });
     });
 
-    res.redirect("/pet");
-    db.close();
-  });
+    promise_checkRequest.then(() => {
+      if (foundPet) {
+        return res.status(404).json({ error: "Pet not found" });
+      } else {
+        // Update pets record by id
+        const promise_updatePets = new Promise((resolve, reject) => {
+          // Create SQL
+          const updatePets = `
+            UPDATE pets
+            SET 
+            category_id = ${category.id} ,
+            name = "${name}" ,
+            status = "${status}" 
+            WHERE id = ${id};`;
+
+          resolve(updatePets);
+        });
+
+        // Delete and update pet_tags by id
+        // Delete pet_tags
+        const promise_deleteTags = new Promise((resolve, reject) => {
+          // Create SQL
+          const deletePetTags = `DELETE FROM pet_tags WHERE pet_id = ${id};`;
+          resolve(deletePetTags);
+        });
+
+        // Insert pet_tags
+        const promise_insertTags = new Promise((resolve, reject) => {
+          // Create SQL
+          let insertPetTags = "INSERT INTO pet_tags (pet_id, tag_id) VALUES";
+          tags.forEach((tag, index) => {
+            const valuesToPetTags = ` (${id}, ${tag.id})`;
+            insertPetTags +=
+              index === 0 ? valuesToPetTags : "," + valuesToPetTags;
+          });
+          insertPetTags += ";";
+
+          resolve(insertPetTags);
+        });
+
+        // Delete and update pet_photos by id
+        // Delete pet_photos
+        const promise_deletePetPhotos = new Promise((resolve, reject) => {
+          // Create SQL
+          const deletePetPhotos = `DELETE FROM pet_photos WHERE pet_id = '${id}'`;
+          resolve(deletePetPhotos);
+        });
+
+        // Insert pet_photos
+        const promise_insertPetPhotos = new Promise((resolve, reject) => {
+          // Create SQL
+          let insertPetPhotos =
+            "INSERT INTO pet_photos (pet_id, photo_url) VALUES";
+          photoUrls.forEach((photoUrl, index) => {
+            const valuesToPetPhotos = `(${id}, "${photoUrl}")`;
+            insertPetPhotos +=
+              index === 0 ? valuesToPetPhotos : "," + valuesToPetPhotos;
+          });
+          insertPetPhotos += ";";
+
+          resolve(insertPetPhotos);
+        });
+
+        // After all promises and respond
+        Promise.all([
+          promise_updatePets,
+          promise_deleteTags,
+          promise_insertTags,
+          promise_deletePetPhotos,
+          promise_insertPetPhotos,
+        ]).then((queries) => {
+          queries.forEach((query) => {
+            db.run(query);
+          });
+
+          res.redirect("/pet");
+        });
+      }
+    });
+  }
+  db.close();
 });
 
 // 4: ****************************************************************
@@ -272,8 +302,17 @@ app.get("/pet/findByStatus", (req, res) => {
   // Get request
   const status = req.query.status;
 
-  // SELECT pets' information using status
-  const selectPets = `
+  // Check request's status
+  let errorFlag = false;
+  const availableValues = ["available", "pending", "sold"];
+  if (status && !availableValues.includes(status)) {
+    return res.status(400).json({ error: "Invalid status value" });
+    errorFlag = true;
+  }
+
+  if (errorFlag) {
+    // SELECT pets' information using status
+    const selectPets = `
     SELECT
        p.id petID,
        p.category_id categoryID,
@@ -284,8 +323,8 @@ app.get("/pet/findByStatus", (req, res) => {
     LEFT JOIN categories c ON p.category_id = c.id
     WHERE p.status = ?;`;
 
-  // SELECT tags's information using pet_id
-  const selectTags = `
+    // SELECT tags's information using pet_id
+    const selectTags = `
     SELECT 
        t.id tagID,
        t.name tagName
@@ -293,52 +332,54 @@ app.get("/pet/findByStatus", (req, res) => {
     JOIN pet_tags pt ON pt.tag_id = t.id
     WHERE pt.pet_id = ? `;
 
-  // SELECT pet_photos'information using pet_id
-  const selectPetPhotos = `
+    // SELECT pet_photos'information using pet_id
+    const selectPetPhotos = `
     SELECT 
-      pp.photo_url photoURL
-    FROM pet_photos pp
-    WHERE pp.pet_id = ? `;
+      photo_url photoURL
+    FROM pet_photos 
+    WHERE pet_id = ? `;
 
-  // Create base information
-  db.all(selectPets, [status], (err, pets) => {
-    const formattedResponse = pets.map((pet) => ({
-      id: pet.petID,
-      category: { id: pet.categoryID, name: pet.categoryName },
-      name: pet.petName,
-      tags: [],
-      status: pet.petStatus,
-      photoUrls: [],
-    }));
+    // Create base information
+    db.all(selectPets, [status], (err, pets) => {
+      const formattedResponse = pets.map((pet) => ({
+        id: pet.petID,
+        category: { id: pet.categoryID, name: pet.categoryName },
+        name: pet.petName,
+        tags: [],
+        status: pet.petStatus,
+        photoUrls: [],
+      }));
 
-    // Add tags to the response
-    const promise_getTags = formattedResponse.map((pet) => {
-      return new Promise((resolve, reject) => {
-        db.all(selectTags, [pet.id], (err, tags) => {
-          pet.tags = tags.map((tag) => ({ id: tag.tagID, name: tag.tagName }));
-          resolve();
+      // Add tags to the response
+      const promise_getTags = formattedResponse.map((pet) => {
+        return new Promise((resolve, reject) => {
+          db.all(selectTags, [pet.id], (err, tags) => {
+            pet.tags = tags.map((tag) => ({
+              id: tag.tagID,
+              name: tag.tagName,
+            }));
+            resolve();
+          });
         });
       });
-    });
 
-    // Add photo_urls to the response
-    const promises_getPhotUrl = formattedResponse.map((pet) => {
-      return new Promise((resolve, reject) => {
-        db.all(selectPetPhotos, [pet.id], (err, photos) => {
-          pet.photoUrls = photos.map((photo) => photo.photoURL);
-          resolve();
+      // Add photo_urls to the response
+      const promises_getPhotUrl = formattedResponse.map((pet) => {
+        return new Promise((resolve, reject) => {
+          db.all(selectPetPhotos, [pet.id], (err, photos) => {
+            pet.photoUrls = photos.map((photo) => photo.photoURL);
+            resolve();
+          });
         });
       });
-    });
 
-    // After all promises, respond and close DB.
-    Promise.all([...promise_getTags, ...promises_getPhotUrl]).then(() => {
-      res.json(formattedResponse);
-
-      // Disconnect from database
-      db.close();
+      // After all promises, respond and close DB.
+      Promise.all([...promise_getTags, ...promises_getPhotUrl]).then(() => {
+        res.status(200).json(formattedResponse);
+      });
     });
-  });
+  }
+  db.close();
 });
 
 // 5: ****************************************************************
@@ -346,25 +387,45 @@ app.get("/pet/findByStatus", (req, res) => {
 app.get("/pet/findByTags", (req, res) => {
   const db = dbConnect();
 
-  // Get request body
+  // Get request
   const tags = req.query.tags;
-  const tagArray = tags.split(",");
+  const tagsArray = tags.split(",");
 
-  // Get the tag's ids from the request parameters
-  const tagsPlaceholder = tagArray.map(() => "?").join(", ");
-  const selectTags = `
+  // Check request's tags
+  let tagsCount = 0;
+  let foundInValidTag = false;
+  let errorFlag = false;
+  const selectTagName = `SELECT COUNT(*) count FROM tags WHERE tags.name = ?;`;
+  for (let tagName of tagsArray) {
+    db.get(selectTagName, [tagName], (err, tag) => {
+      if (tag.count === 0) {
+        foundInValidTag = true;
+      }
+      tagsCount++;
+
+      if (foundInValidTag && tagsCount === tagsArray.length) {
+        return res.status(400).json({ error: "Invalid tag value" });
+        errorFlag = true;
+      }
+    });
+  }
+
+  if (errorFlag) {
+    // Get the tag's ids from the request parameters
+    const tagsPlaceholder = tagsArray.map(() => "?").join(", ");
+    const selectTags = `
     SELECT 
         DISTINCT id tagID,
         name tagName
     FROM tags
     WHERE name IN (${tagsPlaceholder});`;
 
-  // Get pet_id from pet_tags using tag's id
-  db.all(selectTags, tagArray, (err, tags) => {
-    // Create SQL
-    const tag_ids = tags.map((tag) => tag.tagID);
-    const tagIdsOfPetTags = tag_ids.map(() => "?").join(", ");
-    const selectPetIdsOfPetTags = `
+    // Get pet_id from pet_tags using tag's id
+    db.all(selectTags, tagsArray, (err, tags) => {
+      // Create SQL
+      const tag_ids = tags.map((tag) => tag.tagID);
+      const tagIdsOfPetTags = tag_ids.map(() => "?").join(", ");
+      const selectPetIdsOfPetTags = `
       SELECT
           DISTINCT pt.pet_id petId
       FROM pet_tags pt
@@ -372,11 +433,11 @@ app.get("/pet/findByTags", (req, res) => {
       WHERE pt.tag_id IN (${tagIdsOfPetTags})
       ORDER BY petId;`;
 
-    // Get pets using petIds
-    db.all(selectPetIdsOfPetTags, tag_ids, (err, petIds) => {
-      // Create SQL
-      const petIdsOfPetTags = petIds.map(() => "?").join(", ");
-      const selectPets = ` 
+      // Get pets using petIds
+      db.all(selectPetIdsOfPetTags, tag_ids, (err, petIds) => {
+        // Create SQL
+        const petIdsOfPetTags = petIds.map(() => "?").join(", ");
+        const selectPets = ` 
       SELECT
          DISTINCT p.id petID,
          p.category_id categoryID,
@@ -388,27 +449,27 @@ app.get("/pet/findByTags", (req, res) => {
       JOIN pet_tags pt ON pt.pet_id = p.id
       WHERE p.id IN (${petIdsOfPetTags});`;
 
-      const getPetIdArray = () => {
-        let petIdArray = [];
-        for (let obj of petIds) {
-          petIdArray.push(obj.petId);
-        }
-        return petIdArray;
-      };
+        const getPetIdArray = () => {
+          let petIdArray = [];
+          for (let obj of petIds) {
+            petIdArray.push(obj.petId);
+          }
+          return petIdArray;
+        };
 
-      // Create base response
-      db.all(selectPets, getPetIdArray(), (err, pets) => {
-        const formattedResponse = pets.map((pet) => ({
-          id: pet.petID,
-          category: { id: pet.categoryID, name: pet.categoryName },
-          name: pet.petName,
-          tags: [],
-          status: pet.petStatus,
-          photoUrls: [],
-        }));
+        // Create base response
+        db.all(selectPets, getPetIdArray(), (err, pets) => {
+          const formattedResponse = pets.map((pet) => ({
+            id: pet.petID,
+            category: { id: pet.categoryID, name: pet.categoryName },
+            name: pet.petName,
+            tags: [],
+            status: pet.petStatus,
+            photoUrls: [],
+          }));
 
-        // Add tags to the response
-        const selectTags = `
+          // Add tags to the response
+          const selectTags = `
         SELECT 
         DISTINCT t.id tagID,
            t.name tagName
@@ -416,114 +477,146 @@ app.get("/pet/findByTags", (req, res) => {
         JOIN pet_tags pt ON pt.tag_id = t.id
         WHERE pt.pet_id = ? `;
 
-        const promise_getTags = formattedResponse.map((pet) => {
-          return new Promise((resolve, reject) => {
-            db.all(selectTags, [pet.id], (err, tags) => {
-              pet.tags = tags.map((tag) => ({
-                id: tag.tagID,
-                name: tag.tagName,
-              }));
-              resolve();
+          const promise_getTags = formattedResponse.map((pet) => {
+            return new Promise((resolve, reject) => {
+              db.all(selectTags, [pet.id], (err, tags) => {
+                pet.tags = tags.map((tag) => ({
+                  id: tag.tagID,
+                  name: tag.tagName,
+                }));
+                resolve();
+              });
             });
           });
-        });
 
-        // Add photo_urls to the response
-        const selectPetPhotos = `
-        SELECT 
-          pp.photo_url photoURL
-        FROM pet_photos pp
-        WHERE pp.pet_id = ? `;
+          // Add photo_urls to the response
+          const selectPetPhotos = `
+            SELECT 
+            photo_url photoURL
+            FROM pet_photos
+            WHERE pet_id = ? `;
 
-        const promises_getPhotUrls = formattedResponse.map((pet) => {
-          return new Promise((resolve, reject) => {
-            db.all(selectPetPhotos, [pet.id], (err, photos) => {
-              pet.photoUrls = photos.map((photo) => photo.photoURL);
-              resolve();
+          const promises_getPhotUrls = formattedResponse.map((pet) => {
+            return new Promise((resolve, reject) => {
+              db.all(selectPetPhotos, [pet.id], (err, photos) => {
+                pet.photoUrls = photos.map((photo) => photo.photoURL);
+                resolve();
+              });
             });
           });
-        });
 
-        // After all promises, respond and close DB.
-        Promise.all([...promise_getTags, ...promises_getPhotUrls]).then(() => {
-          res.json(formattedResponse);
-
-          // Disconnect from database
-          db.close();
+          // After all promises and respond
+          Promise.all([...promise_getTags, ...promises_getPhotUrls]).then(
+            () => {
+              res.status(200).json(formattedResponse);
+            },
+          );
         });
       });
     });
-  });
+  }
+  db.close();
 });
 
 // 6: ****************************************************************
 // Search a pet by petId
 app.get("/pet/:id", (req, res) => {
   const db = dbConnect();
+  // Get request
   const id = req.params.id;
 
-  // SELECT pets's information using petId
-  const selectPets = `
-  SELECT
-     p.id petID,
-     p.category_id categoryID,
-     c.name categoryName,
-     p.name petName,
-     p.status petStatus
-  FROM pets p 
-  JOIN categories c ON p.category_id = c.id
-  WHERE p.id = ?;`;
+  // Check request's id
+  let idError = false;
+  const num = Number(id);
+  if (isNaN(num)) {
+    return res.status(400).json({ error: "Invalid ID supplied" });
+    idError = true;
+  }
 
-  // SELECT tag's information using pet_id
-  const selectTags = `
-  SELECT 
-     t.id tagID,
-     t.name tagName
-  FROM tags t
-  JOIN pet_tags pt ON pt.tag_id = t.id
-  WHERE pt.pet_id = ? `;
-
-  // SELECT pet_photos's information using pet_id
-  const selectPetPhots = `
-  SELECT 
-    pp.photo_url photoURL
-  FROM pet_photos pp
-  WHERE pp.pet_id = ? `;
-
-  // Create base information
-  db.get(selectPets, [id], (err, pet) => {
-    const formattedResponse = {
-      id: pet.petID,
-      category: { id: pet.categoryID, name: pet.categoryName },
-      name: pet.petName,
-      status: pet.petStatus,
-    };
-
-    // Add tags's information to the response
-    const promises_getTags = new Promise((resolve, reject) => {
-      db.all(selectTags, [formattedResponse.id], (err, tags) => {
-        formattedResponse.tags = tags.map((tag) => ({
-          id: tag.tagID,
-          name: tag.tagName,
-        }));
+  if (!idError) {
+    // Check requested data exists in the table
+    let foundPet = false;
+    const selectRequestPet = `SELECT COUNT(*) count FROM pets WHERE id = ?;`;
+    const promise_checkRequest = new Promise((resolve, reject) => {
+      db.get(selectRequestPet, [id], (err, pet) => {
+        if (pet.count === 0) {
+          foundPet = true;
+        }
         resolve();
       });
     });
 
-    // Add pet_photos's information to the response
-    const promises_getPhotUrl = new Promise((resolve, reject) => {
-      db.all(selectPetPhots, [formattedResponse.id], (err, photos) => {
-        formattedResponse.photoUrls = photos.map((photo) => photo.photoURL);
-        resolve();
-      });
-    });
+    promise_checkRequest.then(() => {
+      if (foundPet) {
+        return res.status(404).json({ error: "Pet not found" });
+      } else {
+        // SELECT pets's information using petId
+        const selectPets = `
+            SELECT
+                p.id petID,
+                p.category_id categoryID,
+                c.name categoryName,
+                p.name petName,
+                p.status petStatus
+            FROM pets p 
+            JOIN categories c ON p.category_id = c.id
+            WHERE p.id = ?;`;
 
-    // After all promises, respond and close DB.
-    Promise.all([promises_getTags, promises_getPhotUrl]).then(() => {
-      res.json(formattedResponse);
-      db.close();
+        // SELECT tag's information using pet_id
+        const selectTags = `
+            SELECT 
+                t.id tagID,
+                t.name tagName
+            FROM tags t
+            JOIN pet_tags pt ON pt.tag_id = t.id
+            WHERE pt.pet_id = ? `;
+
+        // SELECT pet_photos's information using pet_id
+        const selectPetPhots = `
+            SELECT 
+                photo_url photoURL
+            FROM pet_photos
+            WHERE pet_id = ? `;
+        console.log(id);
+        // Create base information
+        db.get(selectPets, [id], (err, pet) => {
+          const formattedResponse = {
+            id: pet.petID,
+            category: { id: pet.categoryID, name: pet.categoryName },
+            name: pet.petName,
+            status: pet.petStatus,
+          };
+
+          // Add tags's information to the response
+          const promises_getTags = new Promise((resolve, reject) => {
+            db.all(selectTags, [formattedResponse.id], (err, tags) => {
+              formattedResponse.tags = tags.map((tag) => ({
+                id: tag.tagID,
+                name: tag.tagName,
+              }));
+              resolve();
+            });
+          });
+
+          // Add pet_photos's information to the response
+          const promises_getPhotUrl = new Promise((resolve, reject) => {
+            db.all(selectPetPhots, [formattedResponse.id], (err, photos) => {
+              formattedResponse.photoUrls = photos.map(
+                (photo) => photo.photoURL,
+              );
+              resolve();
+            });
+          });
+
+          // After all promises, respond and close DB.
+          Promise.all([promises_getTags, promises_getPhotUrl]).then(() => {
+            res.status(200).json(formattedResponse);
+          });
+        });
+      }
     });
-  });
+  }
+  db.close();
 });
 
 // 7: ****************************************************************
@@ -537,9 +630,7 @@ app.post("/pet/:id", (req, res) => {
   const status = req.body.status ? req.body.status : "";
 
   // Execute the SQL
-  const changePet = `
-    UPDATE pets SET name = ?, status = ?
-    WHERE id = ? ;`;
+  const changePet = `UPDATE pets SET name = ?, status = ? WHERE id = ? ;`;
   db.run(changePet, [name, status, id]);
 
   res.status(204).end();
@@ -554,14 +645,48 @@ app.delete("/pet/:id", (req, res) => {
   // Get request
   const id = req.params.id;
 
-  // Execute the SQL
-  const deletePet = `
-    DELETE FROM pets 
-    WHERE id = ? ;`;
-  db.run(deletePet, [id]);
+  // Check request's id
+  let idError = false;
+  const num = Number(id);
+  if (isNaN(num)) {
+    return res.status(400).json({ error: "Invalid ID supplied" });
+    idError = true;
+  }
 
-  res.status(204).end();
+  if (!idError) {
+    // Check requested data exists in the table
+    let foundPet = false;
+    const selectRequestPet = `SELECT COUNT(*) count FROM pets WHERE id = ?;`;
+    const promise_checkRequest = new Promise((resolve, reject) => {
+      db.get(selectRequestPet, [id], (err, pet) => {
+        if (pet.count === 0) {
+          foundPet = true;
+        }
+        resolve();
+      });
+    });
+
+    promise_checkRequest.then(() => {
+      if (foundPet) {
+        return res.status(404).json({ error: "Pet not found" });
+      } else {
+        // Execute the SQL
+        const deletePet = `DELETE FROM pets WHERE id = ? ;`;
+        db.run(deletePet, [id]);
+
+        res.status(204).end();
+      }
+    });
+  }
   db.close();
+});
+
+// Middleware to respond
+app.use("/pet/:id", (req, res) => {
+  return res.status(405).json({ error: "Invalid input!!" });
+});
+app.use("/pet", (req, res) => {
+  return res.status(405).json({ error: "Invalid input" });
 });
 
 // Start server
