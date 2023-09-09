@@ -2,7 +2,6 @@ require("dotenv").config();
 const express = require("express");
 const router = express.Router();
 const sqlite3 = require("sqlite3");
-const { route } = require("./getAllPets");
 
 // Connect to database
 const dbFile = "database.sqlite3";
@@ -74,26 +73,51 @@ router.put("/", async (req, res) => {
   if (!idError) {
     const db = dbConnect();
     // Check requested data exists in the table
-    let notFound = false;
+    let notFoundPet = false;
     const selectRequestPet = `SELECT COUNT(*) count FROM pets WHERE id = ?;`;
-    const promise_checkRequest = await new Promise((resolve, reject) => {
+    const promise_checkRequestPet = await new Promise((resolve, reject) => {
       db.get(selectRequestPet, [id], (err, pet) => {
         if (pet.count === 0) {
-          notFound = true;
+          notFoundPet = true;
         }
         resolve();
       });
     });
 
-    await promise_checkRequest;
-    if (notFound) {
-      res.status(404).json({ error: "Not Found", message: "Pet not found" });
+    await promise_checkRequestPet;
+    if (notFoundPet) {
       db.close();
-    } else {
-      // Update pets record by id
-      const promise_updatePets = await new Promise((resolve, reject) => {
-        // Create SQL
-        const updatePets = `
+      return res
+        .status(404)
+        .json({ error: "Not Found", message: "Pet not found" });
+    }
+
+    // Check requested data exists in the table
+    let notFoundCategory = false;
+    const selectRequestCategory = `SELECT COUNT(*) count FROM categories WHERE id = ?;`;
+    const promise_checkRequestCategoryId = await new Promise(
+      (resolve, reject) => {
+        db.get(selectRequestCategory, [category.id], (err, pet) => {
+          if (pet.count === 0) {
+            notFoundCategory = true;
+          }
+          resolve();
+        });
+      },
+    );
+
+    await promise_checkRequestCategoryId;
+    if (notFoundCategory) {
+      db.close();
+      return res
+        .status(404)
+        .json({ error: "Not Found", message: "Category not found" });
+    }
+
+    // Update pets record by id
+    const promise_updatePets = await new Promise((resolve, reject) => {
+      // Create SQL
+      const updatePets = `
               UPDATE pets
               SET 
                 category_id = ${category.id} ,
@@ -101,84 +125,81 @@ router.put("/", async (req, res) => {
                 status = "${status}" 
               WHERE id = ${id};`;
 
-        resolve(updatePets);
-      });
+      resolve(updatePets);
+    });
 
-      // Delete and update pet_tags by id
-      // Delete pet_tags
-      const promise_deleteTags = await new Promise((resolve, reject) => {
-        // Create SQL
-        const deletePetTags = `DELETE FROM pet_tags WHERE pet_id = ${id};`;
-        resolve(deletePetTags);
-      });
+    // Delete and update pet_tags by id
+    // Delete pet_tags
+    const promise_deleteTags = await new Promise((resolve, reject) => {
+      // Create SQL
+      const deletePetTags = `DELETE FROM pet_tags WHERE pet_id = ${id};`;
+      resolve(deletePetTags);
+    });
 
-      // Insert pet_tags
-      const promise_insertTags = new Promise((resolve, reject) => {
-        // Create SQL
-        let insertPetTags = "INSERT INTO pet_tags (pet_id, tag_id) VALUES";
-        tags.forEach((tag, index) => {
-          const valuesToPetTags = ` (${id}, ${tag.id})`;
-          insertPetTags +=
-            index === 0 ? valuesToPetTags : "," + valuesToPetTags;
+    // Insert pet_tags
+    const promise_insertTags = new Promise((resolve, reject) => {
+      // Create SQL
+      let insertPetTags = "INSERT INTO pet_tags (pet_id, tag_id) VALUES";
+      tags.forEach((tag, index) => {
+        const valuesToPetTags = ` (${id}, ${tag.id})`;
+        insertPetTags += index === 0 ? valuesToPetTags : "," + valuesToPetTags;
+      });
+      insertPetTags += ";";
+
+      resolve(insertPetTags);
+    });
+
+    // Delete and update pet_photos by id
+    // Delete pet_photos
+    const promise_deletePetPhotos = await new Promise((resolve, reject) => {
+      // Create SQL
+      const deletePetPhotos = `DELETE FROM pet_photos WHERE pet_id = '${id}'`;
+      resolve(deletePetPhotos);
+    });
+
+    // Insert pet_photos
+    const promise_insertPetPhotos = new Promise((resolve, reject) => {
+      // Create SQL
+      let insertPetPhotos = "INSERT INTO pet_photos (pet_id, photo_url) VALUES";
+      photoUrls.forEach((photoUrl, index) => {
+        const valuesToPetPhotos = `(${id}, "${photoUrl}")`;
+        insertPetPhotos +=
+          index === 0 ? valuesToPetPhotos : "," + valuesToPetPhotos;
+      });
+      insertPetPhotos += ";";
+
+      resolve(insertPetPhotos);
+    });
+
+    // After all promises and respond
+    Promise.all([
+      promise_updatePets,
+      promise_deleteTags,
+      promise_insertTags,
+      promise_deletePetPhotos,
+      promise_insertPetPhotos,
+    ]).then((queries) => {
+      const runQuery = async (queries) =>
+        await new Promise(() => {
+          for (let query of queries) {
+            db.run(query);
+          }
         });
-        insertPetTags += ";";
+      runQuery(queries);
 
-        resolve(insertPetTags);
-      });
+      // Response
+      const responseObject = {
+        id: id,
+        category: category,
+        name: name,
+        photoUrls: photoUrls,
+        tags: tags,
+        status: status,
+      };
 
-      // Delete and update pet_photos by id
-      // Delete pet_photos
-      const promise_deletePetPhotos = await new Promise((resolve, reject) => {
-        // Create SQL
-        const deletePetPhotos = `DELETE FROM pet_photos WHERE pet_id = '${id}'`;
-        resolve(deletePetPhotos);
-      });
-
-      // Insert pet_photos
-      const promise_insertPetPhotos = new Promise((resolve, reject) => {
-        // Create SQL
-        let insertPetPhotos =
-          "INSERT INTO pet_photos (pet_id, photo_url) VALUES";
-        photoUrls.forEach((photoUrl, index) => {
-          const valuesToPetPhotos = `(${id}, "${photoUrl}")`;
-          insertPetPhotos +=
-            index === 0 ? valuesToPetPhotos : "," + valuesToPetPhotos;
-        });
-        insertPetPhotos += ";";
-
-        resolve(insertPetPhotos);
-      });
-
-      // After all promises and respond
-      Promise.all([
-        promise_updatePets,
-        promise_deleteTags,
-        promise_insertTags,
-        promise_deletePetPhotos,
-        promise_insertPetPhotos,
-      ]).then((queries) => {
-        const runQuery = async (queries) =>
-          await new Promise(() => {
-            for (let query of queries) {
-              db.run(query);
-            }
-          });
-        runQuery(queries);
-
-        // Response
-        const responseObject = {
-          id: id,
-          category: category,
-          name: name,
-          photoUrls: photoUrls,
-          tags: tags,
-          status: status,
-        };
-
-        res.status(200).json(responseObject);
-        db.close();
-      });
-    }
+      res.status(200).json(responseObject);
+      db.close();
+    });
   }
 });
 

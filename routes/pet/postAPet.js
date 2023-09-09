@@ -2,7 +2,6 @@ require("dotenv").config();
 const express = require("express");
 const router = express.Router();
 const sqlite3 = require("sqlite3");
-const { route } = require("./getAllPets");
 
 // Connect to database
 const dbFile = "database.sqlite3";
@@ -67,7 +66,7 @@ router.post("/", async (req, res) => {
 
     // Add information to tags
     const promise_insertTags = await new Promise((resolve, reject) => {
-      let insertTags = "INSERT INTO tags (id, name) VALUES";
+      let insertTags = "INSERT OR REPLACE INTO tags (id, name) VALUES";
       tags.forEach((tag, index) => {
         const valuesToTags = `(${tag.id}, "${tag.name}")`;
         insertTags += index === 0 ? valuesToTags : "," + valuesToTags;
@@ -95,7 +94,7 @@ router.post("/", async (req, res) => {
     // Add information to categories
     const promise_insertCategories = await new Promise((resolve, reject) => {
       // Create SQL
-      let insertCategories = `INSERT INTO categories (id, name) VALUES (${category.id}, "${category.name}")`;
+      let insertCategories = `INSERT OR REPLACE INTO categories (id, name) VALUES (${category.id}, "${category.name}")`;
       resolve(insertCategories);
     });
 
@@ -121,12 +120,13 @@ router.post("/", async (req, res) => {
       promise_insertPetTags,
       promise_insertPetPhotos,
     ]).then((queries) => {
-      const runQuery = async (queries) =>
-        await new Promise(() => {
-          for (let query of queries) {
+      const runQuery = async (queries) => {
+        for (let query of queries) {
+          await new Promise(() => {
             db.run(query);
-          }
-        });
+          });
+        }
+      };
       runQuery(queries);
 
       // Response

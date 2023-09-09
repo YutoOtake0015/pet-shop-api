@@ -2,7 +2,6 @@ require("dotenv").config();
 const express = require("express");
 const router = express.Router();
 const sqlite3 = require("sqlite3");
-const { route } = require("./getAllPets");
 
 // Connect to database
 const dbFile = "database.sqlite3";

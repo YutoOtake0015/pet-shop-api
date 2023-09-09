@@ -2,7 +2,6 @@ require("dotenv").config();
 const express = require("express");
 const router = express.Router();
 const sqlite3 = require("sqlite3");
-const { route } = require("./getAllPets");
 
 // Connect to database
 const dbFile = "database.sqlite3";
@@ -40,7 +39,7 @@ router.get("/findByTags", (req, res) => {
       tagsCount++;
 
       if (foundInValidTag && tagsCount === tagsArray.length) {
-        return res.status(400).json({ error: "Invalid tag value" });
+        return res.status(400).json({ error: "Invalid tag supplied" });
         invalidTags = true;
       }
     });
