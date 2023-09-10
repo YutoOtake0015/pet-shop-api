@@ -15,7 +15,6 @@ router.get("/:id", async (req, res) => {
     const id = req.params.id;
 
     // Check request's id
-    let idError = false;
     const num = Number(id);
     if (isNaN(num)) {
       return res.status(400).send({

@@ -1,66 +1,101 @@
 require("dotenv").config();
 const express = require("express");
 const router = express.Router();
-const sqlite3 = require("sqlite3");
 
-// Connect to database
-const dbFile = "database.sqlite3";
-const dbConnect = () => {
-  // Create a new database connection
-  const db = new sqlite3.Database(dbFile);
-
-  // Enable foreign key constraints for this connection
-  db.run("PRAGMA foreign_keys=ON");
-
-  return db;
-};
+// Initialize Prisma Client instance
+const { PrismaClient } = require("@prisma/client");
+const prisma = new PrismaClient();
 
 // Middleware applied
 router.use(express.json());
 
 // Change a petName and petStatus  by petId
-router.post("/:id", (req, res) => {
-  const db = dbConnect();
+router.post("/:id", async (req, res) => {
+  try {
+    // Get request
+    const id = req.params.id;
+    const name = req.body.name ? req.body.name : "";
+    const status = req.body.status ? req.body.status : "";
 
-  // Get request
-  const id = req.params.id;
-  const name = req.body.name ? req.body.name : "";
-  const status = req.body.status ? req.body.status : "";
-
-  // Check request's id
-  let idError = false;
-  const num = Number(id);
-  if (isNaN(num)) {
-    return res.status(400).json({ error: "Invalid ID supplied" });
-    db.close();
-    idError = true;
-  }
-
-  if (!idError) {
-    // Check requested data exists in the table
-    let foundPet = false;
-    const selectRequestPet = `SELECT COUNT(*) count FROM pets WHERE id = ?;`;
-    const promise_checkRequest = new Promise((resolve, reject) => {
-      db.get(selectRequestPet, [id], (err, pet) => {
-        if (pet.count === 0) {
-          foundPet = true;
-        }
-        resolve();
+    // Check request's id
+    const num = Number(id);
+    if (isNaN(num)) {
+      return res.status(400).send({
+        code: 400,
+        type: "Bad Request",
+        message: "Invalid ID supplied",
       });
+    }
+
+    // Check requested data exists in the table
+    const petCount = await prisma.pets.count({
+      where: {
+        id: Number(id),
+      },
     });
+    if (petCount === 0) {
+      return res.status(404).send({
+        code: 404,
+        type: "Not Found",
+        message: "Pet not found",
+      });
+    }
+    await prisma.$transaction(async (prisma) => {
+      const pet = await prisma.pets.update({
+        where: {
+          id: Number(id),
+        },
+        data: {
+          name: name,
+          status: status,
+        },
+        select: {
+          id: true,
+          category: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          name: true,
+          pet_photos: {
+            select: {
+              photo_url: true,
+            },
+          },
+          pet_tags: {
+            select: {
+              tag: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+          status: true,
+        },
+      });
 
-    promise_checkRequest.then(() => {
-      if (foundPet) {
-        return res.status(404).json({ error: "Pet not found" });
-        db.close();
-      } else {
-        // Execute the SQL
-        const changePet = `UPDATE pets SET name = ?, status = ? WHERE id = ? ;`;
-        db.run(changePet, [name, status, id]);
-
-        res.status(200).json({ message: "Successful Operation" });
-        db.close();
-      }
+      // formatted response
+      const formattedPets = {
+        id: pet.id,
+        category: pet.category,
+        name: pet.name,
+        photoUrls: pet.pet_photos.map((photo) => photo.photo_url),
+        tags: pet.pet_tags.map((pet_tag) => ({
+          id: pet_tag.tag.id,
+          name: pet_tag.tag.name,
+        })),
+        status: pet.status,
+      };
+      return res.status(200).json(formattedPets);
+    });
+  } catch (error) {
+    return res.status(500).send({
+      code: 500,
+      type: "Internal Server Error",
+      message: error.message,
     });
   }
 });

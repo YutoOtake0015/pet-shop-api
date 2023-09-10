@@ -16,7 +16,6 @@ router.delete("/:id", async (req, res) => {
     const id = req.params.id;
 
     // Check request's id
-    let idError = false;
     const num = Number(id);
     if (isNaN(num)) {
       return res.status(400).send({
@@ -25,6 +24,7 @@ router.delete("/:id", async (req, res) => {
         message: "Invalid ID supplied",
       });
     }
+
     // Check requested data exists in the table
     const petCount = await prisma.pets.count({
       where: {
