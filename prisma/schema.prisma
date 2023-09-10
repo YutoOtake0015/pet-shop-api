@@ -1,0 +1,48 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./database.sqlite3"
+}
+
+model Pets {
+  id Int @id
+  category_id Int?
+  name String
+  status String
+  category Categories? @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  pet_tags Pet_Tags[]
+  pet_photos Pet_Photos[]
+}
+
+model Categories {
+  id Int @id
+  name String
+  pets Pets[]
+}
+
+model Tags {
+  id Int @id
+  name String
+  pet_tags Pet_Tags[]
+}
+
+model Pet_Tags {
+  pet_id Int
+  tag_id Int 
+  pet Pets @relation(fields: [pet_id], references: [id], onDelete: Cascade)
+  tag Tags @relation(fields: [tag_id], references: [id], onDelete: Cascade)
+  @@id([pet_id, tag_id])
+}
+
+model Pet_Photos {
+  pet_id Int
+  photo_url String
+  pet Pets @relation(fields: [pet_id], references: [id], onDelete: Cascade)
+  @@id([pet_id, photo_url])
+}
