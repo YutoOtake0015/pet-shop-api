@@ -55,7 +55,7 @@ router.get("/", async (req, res) => {
     };
   });
 
-  return res.json(formattedPets);
+  return res.status(200).json(formattedPets);
 });
 
 module.exports = router;

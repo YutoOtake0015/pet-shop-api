@@ -25,10 +25,18 @@ app.use("/pet", getAPetByPetId);
 
 // Middleware to respond
 app.use("/pet/:id", (req, res) => {
-  return res.status(405).json({ error: "Invalid input!!" });
+  return res.status(405).json({
+    code: 405,
+    type: "Method Not Allowed",
+    message: "Invalid input",
+  });
 });
 app.use("/pet", (req, res) => {
-  return res.status(405).json({ error: "Invalid input" });
+  return res.status(405).json({
+    code: 405,
+    type: "Method Not Allowed",
+    message: "Invalid input",
+  });
 });
 
 // Start server
