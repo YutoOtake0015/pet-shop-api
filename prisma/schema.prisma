@@ -35,7 +35,7 @@ model Tags {
 model Pet_Tags {
   pet_id Int
   tag_id Int 
-  pet Pets @relation(fields: [pet_id], references: [id], onDelete: Cascade)
+  pets Pets @relation(fields: [pet_id], references: [id], onDelete: Cascade)
   tag Tags @relation(fields: [tag_id], references: [id], onDelete: Cascade)
   @@id([pet_id, tag_id])
 }

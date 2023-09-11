@@ -31,7 +31,7 @@ router.get("/findByStatus", async (req, res) => {
       });
     }
 
-    // Search a pet
+    // Search pet
     const pets = await prisma.pets.findMany({
       where: {
         status: {
