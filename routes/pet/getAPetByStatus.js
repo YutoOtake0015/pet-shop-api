@@ -1,108 +1,93 @@
 require("dotenv").config();
 const express = require("express");
 const router = express.Router();
-const sqlite3 = require("sqlite3");
 
-// Connect to database
-const dbFile = "database.sqlite3";
-const dbConnect = () => {
-  // Create a new database connection
-  const db = new sqlite3.Database(dbFile);
-
-  // Enable foreign key constraints for this connection
-  db.run("PRAGMA foreign_keys=ON");
-
-  return db;
-};
+// Initialize Prisma Client instance
+const { PrismaClient } = require("@prisma/client");
+const prisma = new PrismaClient();
 
 // Middleware applied
 router.use(express.json());
 
 // Search a pets by status
-router.get("/findByStatus", (req, res) => {
-  const db = dbConnect();
+router.get("/findByStatus", async (req, res) => {
+  try {
+    // Get request
+    const status = req.query.status;
+    const statusArray = status.split(",");
 
-  // Get request
-  const status = req.query.status;
+    // Check request's status
+    const availableValues = ["available", "pending", "sold"];
+    const validateValues = statusArray.every((status) =>
+      availableValues.includes(status),
+    );
+    console.log("validateValues: ", validateValues);
 
-  // Check request's status
-  let invalidStatus = false;
-  const availableValues = ["available", "pending", "sold"];
-  if (status && !availableValues.includes(status)) {
-    return res.status(400).json({ error: "Invalid status value" });
-    invalidStatus = true;
-  }
-
-  if (!invalidStatus) {
-    // SELECT pets' information using status
-    const selectPets = `
-      SELECT
-         p.id petID,
-         p.category_id categoryID,
-         c.name categoryName,
-         p.name petName,
-         p.status petStatus
-      FROM pets p 
-      LEFT JOIN categories c ON p.category_id = c.id
-      WHERE p.status = ?;`;
-
-    // SELECT tags's information using pet_id
-    const selectTags = `
-      SELECT 
-         t.id tagID,
-         t.name tagName
-      FROM tags t
-      JOIN pet_tags pt ON pt.tag_id = t.id
-      WHERE pt.pet_id = ? `;
-
-    // SELECT pet_photos'information using pet_id
-    const selectPetPhotos = `
-      SELECT 
-        photo_url photoURL
-      FROM pet_photos 
-      WHERE pet_id = ? `;
-
-    // Create base information
-    db.all(selectPets, [status], (err, pets) => {
-      const formattedResponse = pets.map((pet) => ({
-        id: pet.petID,
-        category: { id: pet.categoryID, name: pet.categoryName },
-        name: pet.petName,
-        tags: [],
-        status: pet.petStatus,
-        photoUrls: [],
-      }));
-
-      // Add tags to the response
-      const promise_getTags = formattedResponse.map((pet) => {
-        return new Promise((resolve, reject) => {
-          db.all(selectTags, [pet.id], (err, tags) => {
-            pet.tags = tags.map((tag) => ({
-              id: tag.tagID,
-              name: tag.tagName,
-            }));
-            resolve();
-          });
-        });
+    if (status && !validateValues) {
+      return res.status(400).json({
+        code: 400,
+        type: "Bad Request",
+        message: "Invalid status value",
       });
+    }
 
-      // Add photo_urls to the response
-      const promises_getPhotUrl = formattedResponse.map((pet) => {
-        return new Promise((resolve, reject) => {
-          db.all(selectPetPhotos, [pet.id], (err, photos) => {
-            pet.photoUrls = photos.map((photo) => photo.photoURL);
-            resolve();
-          });
-        });
-      });
+    // Search a pet
+    const pets = await prisma.pets.findMany({
+      where: {
+        status: {
+          in: statusArray,
+        },
+      },
+      select: {
+        id: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        name: true,
+        pet_photos: {
+          select: {
+            photo_url: true,
+          },
+        },
+        pet_tags: {
+          select: {
+            tag: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        status: true,
+      },
+    });
 
-      // After all promises, respond and close DB.
-      Promise.all([...promise_getTags, ...promises_getPhotUrl]).then(() => {
-        res.status(200).json(formattedResponse);
-      });
+    // formatted response
+    const formattedPets = pets.map((pet) => {
+      return {
+        id: pet.id,
+        category: pet.category,
+        name: pet.name,
+        photoUrls: pet.pet_photos.map((photo) => photo.photo_url),
+        tags: pet.pet_tags.map((pet_tag) => ({
+          id: pet_tag.tag.id,
+          name: pet_tag.tag.name,
+        })),
+        status: pet.status,
+      };
+    });
+    return res.status(200).json(formattedPets);
+  } catch (error) {
+    return res.status(500).send({
+      code: 500,
+      type: "Internal Server Error",
+      message: error.message,
     });
   }
-  db.close();
 });
 
 module.exports = router;
