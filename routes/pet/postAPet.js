@@ -1,150 +1,99 @@
 require("dotenv").config();
 const express = require("express");
 const router = express.Router();
-const sqlite3 = require("sqlite3");
 
-// Connect to database
-const dbFile = "database.sqlite3";
-const dbConnect = () => {
-  // Create a new database connection
-  const db = new sqlite3.Database(dbFile);
-
-  // Enable foreign key constraints for this connection
-  db.run("PRAGMA foreign_keys=ON");
-
-  return db;
-};
+// Initialize Prisma Client instance
+const { PrismaClient } = require("@prisma/client");
+const prisma = new PrismaClient();
 
 // Middleware applied
 router.use(express.json());
 
 // Post a new pet
 router.post("/", async (req, res) => {
-  // Check "id" exists in request
-  if (!req.body.id || req.body.id === "") {
-    return res
-      .status(400)
-      .json({ error: "Bad Request", message: "id is required" });
-  }
-  // Connect to database
-  const db = dbConnect();
-
-  // Get request
-  const id = req.body.id;
-  const category = req.body.category ? req.body.category : "";
-  const name = req.body.name ? req.body.name : "";
-  const photoUrls = req.body.photoUrls ? req.body.photoUrls : "";
-  const tags = req.body.tags ? req.body.tags : "";
-  const status = req.body.status ? req.body.status : "";
-
   try {
-    // Check request's "id" is already registered in pets
-    const sql = `SELECT COUNT(*) count FROM pets WHERE id = '${id}'`;
-    const func = await new Promise((resolve, reject) => {
-      db.get(sql, (err, pet) => {
-        if (pet.count > 0) {
-          resolve(true);
-        }
-        resolve(false);
+    // Get request
+    const { id, category, name, photoUrls, tags, status } = req.body;
+
+    const insertedData = await prisma.$transaction(async (prisma) => {
+      // Create category
+      const insertedCategory = await prisma.categories.upsert({
+        where: { name: category.name },
+        create: { name: category.name },
+        update: { name: category.name },
       });
-    });
-    if (func) {
-      return res
-        .status(400)
-        .json({ error: "Bad Request", message: "id is already in use" });
-    }
 
-    // Add information to pets
-    const promise_insertPets = await new Promise((resolve, reject) => {
-      // Create SQL
-      const insertPets = `
-          INSERT INTO pets (id, category_id, name, status)
-          VALUES (${id}, ${category.id}, "${name}", "${status}");`;
-
-      resolve(insertPets);
-    });
-
-    // Add information to tags
-    const promise_insertTags = await new Promise((resolve, reject) => {
-      let insertTags = "INSERT OR REPLACE INTO tags (id, name) VALUES";
-      tags.forEach((tag, index) => {
-        const valuesToTags = `(${tag.id}, "${tag.name}")`;
-        insertTags += index === 0 ? valuesToTags : "," + valuesToTags;
+      // Create pet
+      const insertedPet = await prisma.pets.create({
+        data: {
+          name,
+          categoryId: insertedCategory.id,
+          status,
+        },
       });
-      insertTags += ";";
 
-      resolve(insertTags);
-    });
+      // Create tags
+      let insertedTags = [];
+      for (let tag of tags) {
+        insertedTags[insertedTags.length] = await prisma.tags.upsert({
+          where: { name: tag.name },
+          create: { name: tag.name },
+          update: { name: tag.name },
+        });
+      }
 
-    // Add information to pet_tags
-    const promise_insertPetTags = new Promise((resolve, reject) => {
-      // Create SQL
-      let insertPetTags = "INSERT INTO pet_tags (pet_id, tag_id) VALUES";
-      tags.forEach((tag, index) => {
-        const tag_id = tag.id;
-        const valuesToPetTags = `(${id}, ${tag_id})`;
+      //  PetTags
+      for (let insertedTag of insertedTags) {
+        await prisma.petTags.create({
+          data: {
+            petId: insertedPet.id,
+            tagId: insertedTag.id,
+          },
+        });
+      }
 
-        insertPetTags += index === 0 ? valuesToPetTags : "," + valuesToPetTags;
-      });
-      insertPetTags += ";";
+      // PetPhotos
+      for (let photoUrl of photoUrls) {
+        await prisma.petPhotos.create({
+          data: {
+            petId: insertedPet.id,
+            photoUrl,
+          },
+        });
+      }
 
-      resolve(insertPetTags);
-    });
-
-    // Add information to categories
-    const promise_insertCategories = await new Promise((resolve, reject) => {
-      // Create SQL
-      let insertCategories = `INSERT OR REPLACE INTO categories (id, name) VALUES (${category.id}, "${category.name}")`;
-      resolve(insertCategories);
-    });
-
-    // Add information to pet_photos
-    const promise_insertPetPhotos = new Promise((resolve, reject) => {
-      // Create SQL
-      let insertPetPhotos = "INSERT INTO pet_photos (pet_id, photo_url) VALUES";
-      photoUrls.forEach((photoUrl, index) => {
-        const valuesToPetPhotos = `("${id}", "${photoUrl}")`;
-
-        insertPetPhotos +=
-          index === 0 ? valuesToPetPhotos : "," + valuesToPetPhotos;
-      });
-      insertPetPhotos += ";";
-      resolve(insertPetPhotos);
-    });
-
-    // After all promises and respond
-    await Promise.all([
-      promise_insertCategories,
-      promise_insertPets,
-      promise_insertTags,
-      promise_insertPetTags,
-      promise_insertPetPhotos,
-    ]).then((queries) => {
-      const runQuery = async (queries) => {
-        for (let query of queries) {
-          await new Promise(() => {
-            db.run(query);
-          });
-        }
-      };
-      runQuery(queries);
-
-      // Response
-      const responseObject = {
-        id: id,
-        category: category,
-        name: name,
-        photoUrls: photoUrls,
-        tags: tags,
-        status: status,
+      // Return data
+      const petData = {
+        pet: insertedPet,
+        category: insertedCategory,
+        photoUrls,
+        tags: insertedTags,
       };
 
-      res.status(200).json(responseObject);
+      return petData;
     });
+
+    // Formatted response
+    const responseObject = {
+      id: insertedData.pet.id,
+      category: {
+        id: insertedData.category.id,
+        name: insertedData.category.name,
+      },
+      name: insertedData.pet.name,
+      photoUrls: insertedData.photoUrls,
+      tags: insertedData.tags.map((tag) => ({ id: tag.id, name: tag.name })),
+      status: insertedData.pet.status,
+    };
+
+    res.status(200).json(responseObject);
   } catch (error) {
-    res.status(500).json({ error: "Server Error" });
-  } finally {
-    db.close();
+    console.log(error.message);
+    return res.status(500).send({
+      code: 500,
+      type: "Internal Server Error",
+      message: error.message,
+    });
   }
 });
 

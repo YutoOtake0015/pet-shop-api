@@ -3,20 +3,20 @@ const express = require("express");
 const app = express();
 
 // "/pet"
-const createInitialPet = require("./routes/pet/seeds/createInitialPet");
+const createDummyPets = require("./routes/pet/dummy/createDummyPets");
 const getAllPets = require("./routes/pet/getAllPets");
 const postAPet = require("./routes/pet/postAPet");
 const getAPetByPetId = require("./routes/pet/getAPetByPetId");
 const getAPetByTags = require("./routes/pet/getAPetByTags");
 const getAPetByStatus = require("./routes/pet/getAPetByStatus");
-const putAPet = require("./routes/pet/putAPet");
+// const putAPet = require("./routes/pet/putAPet");
 const postAPetByPetId = require("./routes/pet/postAPetByPetId");
 const deleteAPetByPetId = require("./routes/pet/deleteAPetByPetId");
 
-app.use("/pet", createInitialPet);
+app.use("/pet", createDummyPets);
 app.use("/pet", getAllPets);
 app.use("/pet", postAPet);
-app.use("/pet", putAPet);
+// app.use("/pet", putAPet);
 app.use("/pet", getAPetByTags);
 app.use("/pet", getAPetByStatus);
 app.use("/pet", postAPetByPetId);

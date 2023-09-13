@@ -6,43 +6,43 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./database.sqlite3"
+  provider = "postgresql"
+  url=env("DATABASE_URL")
 }
 
 model Pets {
-  id Int @id
-  category_id Int?
-  name String
+  id Int @id @default(autoincrement())
+  category Categories? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  categoryId Int?
+  name String 
   status String
-  category Categories? @relation(fields: [category_id], references: [id], onDelete: SetNull)
-  pet_tags Pet_Tags[]
-  pet_photos Pet_Photos[]
+  petTags PetTags[]
+  petPhotos PetPhotos[]
 }
 
 model Categories {
-  id Int @id
-  name String
+  id Int @id @default(autoincrement())
+  name String @unique
   pets Pets[]
 }
 
 model Tags {
-  id Int @id
-  name String
-  pet_tags Pet_Tags[]
+  id Int @id @default(autoincrement())
+  name String @unique
+  petTags PetTags[]
 }
 
-model Pet_Tags {
-  pet_id Int
-  tag_id Int 
-  pets Pets @relation(fields: [pet_id], references: [id], onDelete: Cascade)
-  tag Tags @relation(fields: [tag_id], references: [id], onDelete: Cascade)
-  @@id([pet_id, tag_id])
+model PetTags {
+  pets Pets @relation(fields: [petId], references: [id], onDelete: Cascade)
+  petId Int
+  tags Tags @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tagId Int
+  @@id([petId, tagId])
 }
 
-model Pet_Photos {
-  pet_id Int
-  photo_url String
-  pet Pets @relation(fields: [pet_id], references: [id], onDelete: Cascade)
-  @@id([pet_id, photo_url])
+model PetPhotos {
+  pet Pets @relation(fields: [petId], references: [id], onDelete: Cascade)
+  petId Int
+  photoUrl String
+  @@id([petId, photoUrl])
 }
