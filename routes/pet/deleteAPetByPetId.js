@@ -39,7 +39,7 @@ router.delete("/:id", async (req, res) => {
       });
     }
 
-    const deletedPet = await prisma.pets.delete({
+    deletedPet = await prisma.pets.delete({
       where: {
         id: Number(id),
       },
