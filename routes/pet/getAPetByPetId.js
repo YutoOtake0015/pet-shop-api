@@ -39,6 +39,9 @@ router.get("/:id", async (req, res) => {
     }
 
     const pet = await prisma.pets.findUnique({
+      where: {
+        id: Number(id),
+      },
       select: {
         id: true,
         category: {
@@ -48,14 +51,14 @@ router.get("/:id", async (req, res) => {
           },
         },
         name: true,
-        pet_photos: {
+        petPhotos: {
           select: {
-            photo_url: true,
+            photoUrl: true,
           },
         },
-        pet_tags: {
+        petTags: {
           select: {
-            tag: {
+            tags: {
               select: {
                 id: true,
                 name: true,
@@ -65,9 +68,6 @@ router.get("/:id", async (req, res) => {
         },
         status: true,
       },
-      where: {
-        id: Number(id),
-      },
     });
 
     // formatted response
@@ -75,15 +75,16 @@ router.get("/:id", async (req, res) => {
       id: pet.id,
       category: pet.category,
       name: pet.name,
-      photoUrls: pet.pet_photos.map((photo) => photo.photo_url),
-      tags: pet.pet_tags.map((pet_tag) => ({
-        id: pet_tag.tag.id,
-        name: pet_tag.tag.name,
+      photoUrls: pet.petPhotos.map((photo) => photo.photoUrl),
+      tags: pet.petTags.map((petTag) => ({
+        id: petTag.tags.id,
+        name: petTag.tags.name,
       })),
       status: pet.status,
     };
     return res.status(200).json(formattedPets);
   } catch (error) {
+    console.error(error.message, error);
     return res.status(500).send({
       code: 500,
       type: "Internal Server Error",
