@@ -21,14 +21,14 @@ router.get("/", async (req, res) => {
         },
       },
       name: true,
-      pet_photos: {
+      petPhotos: {
         select: {
-          photo_url: true,
+          photoUrl: true,
         },
       },
-      pet_tags: {
+      petTags: {
         select: {
-          tag: {
+          tags: {
             select: {
               id: true,
               name: true,
@@ -46,10 +46,10 @@ router.get("/", async (req, res) => {
       id: pet.id,
       category: pet.category,
       name: pet.name,
-      photoUrls: pet.pet_photos.map((photo) => photo.photo_url),
-      tags: pet.pet_tags.map((pet_tag) => ({
-        id: pet_tag.tag.id,
-        name: pet_tag.tag.name,
+      photoUrls: pet.petPhotos.map((photo) => photo.photoUrl),
+      tags: pet.petTags.map((petTag) => ({
+        id: petTag.tags.id,
+        name: petTag.tags.name,
       })),
       status: pet.status,
     };
