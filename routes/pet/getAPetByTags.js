@@ -37,10 +37,11 @@ router.get("/findByTags", async (req, res) => {
 
     // Search pet
     const pets = await prisma.pets.findMany({
+      orderBy: [{ id: "asc" }],
       where: {
         petTags: {
           some: {
-            tag: {
+            tags: {
               name: {
                 in: tagsArray,
               },
@@ -75,6 +76,7 @@ router.get("/findByTags", async (req, res) => {
         status: true,
       },
     });
+    console.log(pets);
 
     // formatted response
     const formattedPets = pets.map((pet) => {
@@ -84,8 +86,8 @@ router.get("/findByTags", async (req, res) => {
         name: pet.name,
         photoUrls: pet.petPhotos.map((photo) => photo.photoUrl),
         tags: pet.petTags.map((petTag) => ({
-          id: petTag.tag.id,
-          name: petTag.tag.name,
+          id: petTag.tags.id,
+          name: petTag.tags.name,
         })),
         status: pet.status,
       };
