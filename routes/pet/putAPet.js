@@ -10,7 +10,7 @@ const prisma = new PrismaClient();
 
 // Validation schema for requests
 const validateSchema = Joi.object({
-  id: Joi.number().integer().required(),
+  id: Joi.number().integer().required().strict(),
   category: {
     id: Joi.number().integer().required(),
     name: Joi.string().required(),
@@ -51,7 +51,7 @@ router.put("/", async (req, res) => {
 
     // Check request's "id" is already registered in pets
     const foundPetId = await prisma.pets.count({
-      where: { id },
+      where: { id: Number(id) },
     });
     if (foundPetId === 0) {
       return res.status(400).json({

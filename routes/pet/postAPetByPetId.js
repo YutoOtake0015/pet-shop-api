@@ -1,3 +1,5 @@
+const Joi = require("joi");
+
 // Initialize Express for router instance
 const express = require("express");
 const router = express.Router();
@@ -5,6 +7,12 @@ const router = express.Router();
 // Initialize Prisma Client instance
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
+
+// Validation schema for requests
+const validateSchema = Joi.object({
+  name: Joi.string().required(),
+  status: Joi.string().required(),
+});
 
 // Middleware applied
 router.use(express.json());
@@ -14,9 +22,20 @@ router.post("/:id", async (req, res) => {
   try {
     // Get request
     const id = req.params.id;
-    const name = req.body.name ? req.body.name : "";
-    const status = req.body.status ? req.body.status : "";
+    const { name, status } = req.body;
 
+    // Validate request data
+    const { error } = validateSchema.validate(req.body);
+    if (error) {
+      const errorMessage = error.details[0].message;
+      const formattedMessage = errorMessage.replace(/\"/g, "'");
+      return res.status(405).json({
+        code: 405,
+        error: "Bad Request",
+        message: `Invalid input: ${formattedMessage}`,
+      });
+    }
+    console.log("id: ", id);
     // Check request's id
     const num = Number(id);
     if (isNaN(num)) {
