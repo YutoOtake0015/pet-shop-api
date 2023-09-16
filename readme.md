@@ -8,7 +8,6 @@ DBにPostgreSQLを使用しています。</br>
 DATABASE_URL = "postgresql://postgres:PASSWORD@localhost:5432/pet_shop"
 ```
 
-
 # セットアップ
 ```
 git clone https://github.com/YutoOtake0015/pet-shop-api.git
@@ -22,7 +21,6 @@ npm i
 npx prisma migrate dev
 npm start
 ```
-# 仮データ登録
-```
-curl -X POST http://localhost:3000/pet/createDummy
-```
+
+ - 補足</br>
+`npx prisma migrate dev`実行時、仮データが作成されます。
