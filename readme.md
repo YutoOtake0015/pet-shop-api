@@ -7,7 +7,6 @@ cd pet-shop-api
 npm i
 npx prisma migrate dev
 ```
-Do you want to continue? All data will be lost. › (y/N)　 → `y`
 
 ```
 npm start
