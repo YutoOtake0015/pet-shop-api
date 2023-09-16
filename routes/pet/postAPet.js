@@ -15,6 +15,18 @@ router.post("/", async (req, res) => {
     // Get request
     const { id, category, name, photoUrls, tags, status } = req.body;
 
+    // Check request's "id" is already registered in pets
+    const foundPetId = await prisma.pets.count({
+      where: { id },
+    });
+    if (foundPetId) {
+      return res.status(400).json({
+        code: 400,
+        type: "Bad Request",
+        message: "id is already in use",
+      });
+    }
+
     const insertedData = await prisma.$transaction(async (prisma) => {
       // Create category
       const insertedCategory = await prisma.categories.upsert({

@@ -21,7 +21,6 @@ router.get("/findByStatus", async (req, res) => {
     const validateValues = statusArray.every((status) =>
       availableValues.includes(status),
     );
-    console.log("validateValues: ", validateValues);
 
     if (status && !validateValues) {
       return res.status(400).json({
@@ -82,6 +81,7 @@ router.get("/findByStatus", async (req, res) => {
     });
     return res.status(200).json(formattedPets);
   } catch (error) {
+    console.log(error.message);
     return res.status(500).send({
       code: 500,
       type: "Internal Server Error",

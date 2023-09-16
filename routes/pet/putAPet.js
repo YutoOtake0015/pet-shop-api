@@ -36,7 +36,6 @@ router.put("/", async (req, res) => {
   try {
     // Validate request data
     const { error } = validateSchema.validate(req.body);
-
     if (error) {
       const errorMessage = error.details[0].message;
       const formattedMessage = errorMessage.replace(/\"/g, "'");
@@ -47,11 +46,23 @@ router.put("/", async (req, res) => {
       });
     }
 
+    // Get request
+    const { id, category, name, photoUrls, tags, status } = req.body;
+
+    // Check request's "id" is already registered in pets
+    const foundPetId = await prisma.pets.count({
+      where: { id },
+    });
+    if (foundPetId === 0) {
+      return res.status(400).json({
+        code: 400,
+        type: "Bad Request",
+        message: "Pet ID not found",
+      });
+    }
+
     // Update Data
     const updatedData = await prisma.$transaction(async (prisma) => {
-      // Get request
-      const { id, category, name, photoUrls, tags, status } = req.body;
-
       // Update categories
       const updatedCategory = await prisma.categories.upsert({
         where: { name: category.name },
@@ -116,8 +127,6 @@ router.put("/", async (req, res) => {
       return petData;
     });
 
-    // console.log("updatedData: ", updatedData);
-
     // Formatted response
     const responseObject = {
       id: updatedData.pet.id,
@@ -131,7 +140,6 @@ router.put("/", async (req, res) => {
       status: updatedData.pet.status,
     };
 
-    // console.log("responseObject: ", responseObject);
     res.status(200).json(responseObject);
   } catch (error) {
     console.log(error.message);

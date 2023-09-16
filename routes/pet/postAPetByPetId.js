@@ -93,6 +93,7 @@ router.post("/:id", async (req, res) => {
       return res.status(200).json(formattedPets);
     });
   } catch (error) {
+    console.log(error.message);
     return res.status(500).send({
       code: 500,
       type: "Internal Server Error",

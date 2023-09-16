@@ -76,7 +76,6 @@ router.get("/findByTags", async (req, res) => {
         status: true,
       },
     });
-    console.log(pets);
 
     // formatted response
     const formattedPets = pets.map((pet) => {

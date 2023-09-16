@@ -47,6 +47,7 @@ router.delete("/:id", async (req, res) => {
 
     res.status(200).send({ message: `Deleted petId: ${id}` });
   } catch (error) {
+    console.log(error.message);
     return res.status(500).send({
       code: 500,
       type: "Internal Server Error",
