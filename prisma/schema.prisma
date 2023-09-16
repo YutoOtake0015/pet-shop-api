@@ -14,7 +14,7 @@ model Pets {
   id Int @id @default(autoincrement())
   category Categories? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   categoryId Int?
-  name String 
+  name String @unique
   status String
   petTags PetTags[]
   petPhotos PetPhotos[]

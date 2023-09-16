@@ -1,4 +1,4 @@
-require("dotenv").config();
+// Initialize Express for router instance
 const express = require("express");
 const router = express.Router();
 
