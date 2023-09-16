@@ -1,6 +1,6 @@
 # 補足
 DBにPostgreSQLを使用しています。</br>
-セットアップ時、`npx prisma migrate dev`実行前に、</br>
+セットアップ時、`npx prisma migrate dev`実行前に、 </br>
 作成したDBへの接続情報を下記形式で記述した".env"ファイルをルートディレクトリ配置してください。
 
 
