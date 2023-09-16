@@ -3,7 +3,6 @@ const express = require("express");
 const app = express();
 
 // "/pet"
-const createDummyPets = require("./routes/pet/dummy/createDummyPets");
 const getAllPets = require("./routes/pet/getAllPets");
 const postAPet = require("./routes/pet/postAPet");
 const getAPetByPetId = require("./routes/pet/getAPetByPetId");
@@ -13,7 +12,6 @@ const putAPet = require("./routes/pet/putAPet");
 const postAPetByPetId = require("./routes/pet/postAPetByPetId");
 const deleteAPetByPetId = require("./routes/pet/deleteAPetByPetId");
 
-app.use("/pet", createDummyPets);
 app.use("/pet", getAllPets);
 app.use("/pet", postAPet);
 app.use("/pet", putAPet);
