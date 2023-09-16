@@ -22,7 +22,7 @@ npm i
 npx prisma migrate dev
 npm start
 ```
-# 初期データ登録
+# 仮データ登録
 ```
 curl -X POST http://localhost:3000/pet/createDummy
 ```
