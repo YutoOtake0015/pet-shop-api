@@ -1,7 +1,8 @@
 # 補足
 DBにPostgreSQLを使用しています。</br>
-セットアップ時、`npx prisma migrate dev`実行前に、
-下記接続情報を記述した".env"ファイルをルートディレクトリ配置してください。
+セットアップ時、`npx prisma migrate dev`実行前に、</br>
+作成したDBへの接続情報を下記形式で記述した".env"ファイルをルートディレクトリ配置してください。
+
 
 ```.env
 DATABASE_URL = "postgresql://postgres:PASSWORD@localhost:5432/pet_shop"
