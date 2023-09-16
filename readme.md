@@ -11,7 +11,7 @@ DATABASE_URL = "postgresql://postgres:PASSWORD@localhost:5432/pet_shop"
 # セットアップ
 ```
 git clone https://github.com/YutoOtake0015/pet-shop-api.git
-cd question
+cd pet-shop-api
 npm i
 ```
 
