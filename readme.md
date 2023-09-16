@@ -24,5 +24,5 @@ npm start
 ```
 # 初期データ登録
 ```
-http://localhost:3000/pet/createDummy
+curl -X POST http://localhost:3000/pet/createDummy
 ```
