@@ -35,7 +35,7 @@ router.post("/:id", async (req, res) => {
         message: `Invalid input: ${formattedMessage}`,
       });
     }
-    console.log("id: ", id);
+
     // Check request's id
     const num = Number(id);
     if (isNaN(num)) {
