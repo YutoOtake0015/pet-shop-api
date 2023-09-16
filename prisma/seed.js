@@ -11,30 +11,58 @@ const petPhotos = require("./seedData/petPhotos");
 // Create initial data
 const main = async () => {
   await prisma.$transaction(async (prisma) => {
-    // Categories
-    await prisma.categories.createMany({
-      data: categories,
-    });
+    // categories
+    for (let category of categories) {
+      await prisma.categories.create({
+        data: { name: category.name },
+      });
+    }
 
-    // Pets
-    await prisma.pets.createMany({
-      data: pets,
-    });
+    // pets
+    for (let pet of pets) {
+      await prisma.pets.create({
+        data: {
+          name: pet.name,
+          category_id: pet.category_id,
+          status: pet.status,
+        },
+      });
+    }
 
-    // Tags
-    await prisma.tags.createMany({
-      data: tags,
-    });
+    // tags
+    for (let tag of tags) {
+      await prisma.tags.create({
+        data: { name: tag.name },
+      });
+    }
 
-    //  PetTags
-    await prisma.petTags.createMany({
-      data: petTags,
-    });
+    // pet_tags
+    for (let petTag of petTags) {
+      await prisma.petTags.upsert({
+        where: {
+          petId_tagId: {
+            petId: petTag.petId,
+            tagId: petTag.tagId,
+          },
+        },
+        update: {},
+        create: petTag,
+      });
+    }
 
-    // PetPhotos
-    await prisma.petPhotos.createMany({
-      data: petPhotos,
-    });
+    // pet_photos
+    for (let petPhoto of petPhotos) {
+      await prisma.petPhotos.upsert({
+        where: {
+          petId_photoUrl: {
+            petId: petPhoto.petId,
+            photoUrl: petPhoto.photoUrl,
+          },
+        },
+        update: {},
+        create: petPhoto,
+      });
+    }
   });
 };
 
